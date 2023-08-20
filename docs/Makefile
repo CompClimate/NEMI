@@ -14,6 +14,18 @@ help:
 
 .PHONY: help Makefile
 
+.PHONY: clean
+clean:
+	rm -rf $(BUILDDIR)/*
+	rm -rf nemi*.rst
+	rm -rf modules.rst
+
+# generates the API docs
+.PHONY: generate-api
+generate-api: 
+	-rm modules.rst
+	sphinx-apidoc -f -e -M -o . ../nemi
+
 # serve on local
 .PHONY: serve
 serve:

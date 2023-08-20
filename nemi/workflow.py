@@ -11,7 +11,7 @@ from sklearn.cluster import AgglomerativeClustering
 from sklearn.neighbors import kneighbors_graph
 # import sciris as sc
 
-__all__ = ['NEMI']
+__all__ = ['NEMI', 'SingleNemi']
 
 default_params = dict(
     embedding_dict = dict(min_dist=0.0, n_components=3, n_neighbors=20),
@@ -20,6 +20,12 @@ default_params = dict(
 
 
 class SingleNemi():
+    """
+    A single instance of the NEMI pipeline
+
+    Args:
+        params (dict, optional): A dictionary of the embedding and clustering options. Defaults to ``nemi.workflow.default_params``.
+    """
 
     def __init__(self, params=None):
 
@@ -37,16 +43,17 @@ class SingleNemi():
         return
     
     def run(self, X, save_steps=True):
-        '''
-        Run the NEMI pipeline
+        """ Run a single instance of the NEMI pipeline
 
-        Parameters
-        ----------
-        X : {ndarray, sparse matrix} of shape (n_samples, n_features)
-            The data. 
-        n : {int}, optional, default=1
-            Number of iterations to run
-        '''
+        The pipeline consists of steps: 
+        
+        - fitting the embedding
+        - predicting the clusters, 
+        - sorting the clusters by descending size
+
+        Args:
+            X (:py:class:`~numpy.ndarray`): The data contained in a sparse matrix of shape (``n_samples``, ``n_features``)
+        """
 
         # fit the embedding
         print('Fitting the embedding')
@@ -61,17 +68,12 @@ class SingleNemi():
         self.clusters = self.sort_clusters(self.clusters)
 
     def scale_data(self, X):
-        '''
-        Scale the data to have a mean and variance of 1.
+        """ Scale the data to have a mean and variance of 1.
 
-        Parameters
-        ----------
-        X : {ndarray, sparse matrix} of shape (n_samples, n_features)
-            The data to pick seeds for.
-
-        **kwargs : keyword arguments to embedding function
-
-        '''
+        Args:
+            X (:py:class:`~numpy.ndarray`): The data to pick seeds for. A sparse matrix of shape (``n_samples``, ``n_features``)
+            **kwargs : keyword arguments to embedding function
+        """
 
         # scale data
         scaler = StandardScaler()
@@ -79,17 +81,12 @@ class SingleNemi():
         return scaled_data
 
     def fit_embedding(self, X):
-        '''
-        Run the embedding algorithm on the data
+        """ Run the embedding algorithm on the data
 
-        Parameters
-        ----------
-        X : {ndarray, sparse matrix} of shape (n_samples, n_features)
-            The data to pick seeds for.
-
-        **kwargs : keyword arguments to embedding function
-
-        '''
+        Args
+            X (:py:class:`~numpy.ndarray`): The data to pick seeds for. A sparse matrix of shape (``n_samples``, ``n_features``)
+            **kwargs : keyword arguments to embedding function
+        """
 
         # initialize data
         self.X = X
@@ -98,26 +95,26 @@ class SingleNemi():
 
 
     def predict_clusters(self):
-        '''
-        Run the clustering algorithm on the embedding
+        """ Run the clustering algorithm on the embedding
 
-        Parameters
-        ----------
-        n_neighbors: {int} default=40
-            Number of neighbors for each sample of the kneighbors_graph.
-        '''
+        Clustering algorithm parameters is set by the ``clustering_dict`` attribute.
+
+        Returns:
+            Identified clusters
+        """
 
         return self.__clustering_algo(**self.params['clustering_dict'])(self.X)
 
 
     def sort_clusters(self, clusters):
-        '''
-        Updates cluster labels 0,...,k so that each cluster is of descending size.
+        """ Updates cluster labels 0,1,...,k so that each cluster is of descending size.
 
-        Parameters
-        ----------
-        clusters : {array, list} 
-        '''
+        Args:
+            clusters (:py:class`~numpy.ndarray`, list)
+
+        Returns:
+            An array with the new labels
+        """
 
         # number of clusters (also the same as the label name in the agglomerated cluster dict)
         n_clusters = np.max(clusters)+1
@@ -141,13 +138,11 @@ class SingleNemi():
         self.embedding = np.load(filename)
 
     def save_embedding(self, filename):
-        '''
+        """ Save the embedding to a file
 
-        Parameters
-        ----------
-        filename : {string} filename to save embedding
-
-        '''
+        Args:
+            filename (str): Filename to save embedding
+        """
         np.save(filename, self.embedding)
 
     def plot(self, to_plot=None, **kwargs):
@@ -189,12 +184,12 @@ class SingleNemi():
         return umap.UMAP(**kwargs).fit_transform
 
     def __clustering_algo(self, **kwargs):
-        '''
-        Parameters
-        ----------
-        n_neighbors: {int} default=40
-            Number of neighbors for each sample of the kneighbors_graph.        
-        '''
+        """ Clustering step
+
+        Args:
+            n_neighbors (int): Number of neighbors for each sample of the kneighbors_graph. Defaults to 40.
+                   
+        """
         # Create a graph capturing local connectivity. Larger number of neighbors
         # will give more homogeneous clusters to the cost of computation
         # time. A very large number of neighbors gives more evenly distributed
@@ -208,6 +203,11 @@ class SingleNemi():
 
 
 class NEMI(SingleNemi):
+    """ Main NEMI workflow
+
+    Args:
+        params (dict, optional): clustering and enbedding algorithm parameters.
+    """
 
     def __init__(self, params=None):
         # pipeline parameters
@@ -216,7 +216,18 @@ class NEMI(SingleNemi):
         self.base_id = None
 
     def run(self, X, n=1):
+        """ Run the NEMI pipeline
 
+        The pipeline consists of steps: 
+        
+        - fitting the embedding
+        - predicting the clusters, 
+        - sorting the clusters by descending size
+
+        Args:
+            X (:py:class:`~numpy.ndarray`): The data contained in a sparse matrix of shape (``n_samples``, ``n_features``)
+            n (int, optional): Number of iterations to run. Defaults to 1.
+        """
         if n == 1:
             super().run(X)
             return
@@ -246,14 +257,11 @@ class NEMI(SingleNemi):
             super().plot('clusters')
 
     def assess_overlap(self, base_id:int =0, max_clusters=None, **kwargs):
-        '''
+        """ Assess the overlap between the clusters.
 
-        Parameters
-        ----------
-        base_id : {int} optional, default=0
-            index (staring at 0) of ensemble member to use as the base comparison
-
-        '''
+        Args:
+            base_id (int, optional): index (starting at 0) of ensemble member to use as the base comparison
+        """
 
         self.base_id = base_id
         self.embedding = self.nemi_pack[base_id].embedding

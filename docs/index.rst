@@ -58,6 +58,7 @@ Full contents
    :maxdepth: 2
    :caption: Contents:
 
+   index
    modules
 
 

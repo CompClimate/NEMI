@@ -37,7 +37,11 @@ extensions = [
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
-
+autodoc_default_options = {
+    'member-order': 'bysource',
+    'members': None,
+    'exclude-members': '__all__'
+}
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output

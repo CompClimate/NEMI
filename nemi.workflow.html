@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>nemi.workflow module &mdash; NEMI 1.0.0 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=8d563738"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="author" title="About these documents" href="about.html" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="nemi package" href="nemi.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            NEMI
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="index.html">Welcome to NEMI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">nemi</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="nemi.html">nemi package</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">nemi.workflow module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">NEMI</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">nemi</a></li>
+          <li class="breadcrumb-item"><a href="nemi.html">nemi package</a></li>
+      <li class="breadcrumb-item active">nemi.workflow module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/nemi.workflow.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="nemi-workflow-module">
+<h1>nemi.workflow module<a class="headerlink" href="#nemi-workflow-module" title="Link to this heading"></a></h1>
+<dl class="py class" id="module-nemi.workflow">
+<dt class="sig sig-object py" id="nemi.workflow.NEMI">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nemi.workflow.</span></span><span class="sig-name descname"><span class="pre">NEMI</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nemi/workflow.html#NEMI"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemi.workflow.NEMI" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#nemi.workflow.SingleNemi" title="nemi.workflow.SingleNemi"><code class="xref py py-class docutils literal notranslate"><span class="pre">SingleNemi</span></code></a></p>
+<p>Main NEMI workflow</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>params</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>, </em><em>optional</em>) – clustering and enbedding algorithm parameters.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="nemi.workflow.NEMI.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nemi/workflow.html#NEMI.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemi.workflow.NEMI.run" title="Link to this definition"></a></dt>
+<dd><p>Run the NEMI pipeline</p>
+<p>The pipeline consists of steps:</p>
+<ul class="simple">
+<li><p>fitting the embedding</p></li>
+<li><p>predicting the clusters,</p></li>
+<li><p>sorting the clusters by descending size</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.25)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></a>) – The data contained in a sparse matrix of shape (<code class="docutils literal notranslate"><span class="pre">n_samples</span></code>, <code class="docutils literal notranslate"><span class="pre">n_features</span></code>)</p></li>
+<li><p><strong>n</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>, </em><em>optional</em>) – Number of iterations to run. Defaults to 1.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nemi.workflow.NEMI.plot">
+<span class="sig-name descname"><span class="pre">plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">to_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_ensemble</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nemi/workflow.html#NEMI.plot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemi.workflow.NEMI.plot" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nemi.workflow.NEMI.assess_overlap">
+<span class="sig-name descname"><span class="pre">assess_overlap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_clusters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nemi/workflow.html#NEMI.assess_overlap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemi.workflow.NEMI.assess_overlap" title="Link to this definition"></a></dt>
+<dd><p>Assess the overlap between the clusters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>base_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>, </em><em>optional</em>) – index (starting at 0) of ensemble member to use as the base comparison</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="nemi.workflow.SingleNemi">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nemi.workflow.</span></span><span class="sig-name descname"><span class="pre">SingleNemi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nemi/workflow.html#SingleNemi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemi.workflow.SingleNemi" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>A single instance of the NEMI pipeline</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>params</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>, </em><em>optional</em>) – A dictionary of the embedding and clustering options. Defaults to <code class="docutils literal notranslate"><span class="pre">nemi.workflow.default_params</span></code>.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="nemi.workflow.SingleNemi.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nemi/workflow.html#SingleNemi.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemi.workflow.SingleNemi.run" title="Link to this definition"></a></dt>
+<dd><p>Run a single instance of the NEMI pipeline</p>
+<p>The pipeline consists of steps:</p>
+<ul class="simple">
+<li><p>fitting the embedding</p></li>
+<li><p>predicting the clusters,</p></li>
+<li><p>sorting the clusters by descending size</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>X</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.25)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></a>) – The data contained in a sparse matrix of shape (<code class="docutils literal notranslate"><span class="pre">n_samples</span></code>, <code class="docutils literal notranslate"><span class="pre">n_features</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nemi.workflow.SingleNemi.scale_data">
+<span class="sig-name descname"><span class="pre">scale_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nemi/workflow.html#SingleNemi.scale_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemi.workflow.SingleNemi.scale_data" title="Link to this definition"></a></dt>
+<dd><p>Scale the data to have a mean and variance of 1.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.25)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></a>) – The data to pick seeds for. A sparse matrix of shape (<code class="docutils literal notranslate"><span class="pre">n_samples</span></code>, <code class="docutils literal notranslate"><span class="pre">n_features</span></code>)</p></li>
+<li><p><strong>**kwargs</strong> – keyword arguments to embedding function</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nemi.workflow.SingleNemi.fit_embedding">
+<span class="sig-name descname"><span class="pre">fit_embedding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nemi/workflow.html#SingleNemi.fit_embedding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemi.workflow.SingleNemi.fit_embedding" title="Link to this definition"></a></dt>
+<dd><p>Run the embedding algorithm on the data</p>
+<dl class="simple">
+<dt>Args</dt><dd><p>X (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.25)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></a>): The data to pick seeds for. A sparse matrix of shape (<code class="docutils literal notranslate"><span class="pre">n_samples</span></code>, <code class="docutils literal notranslate"><span class="pre">n_features</span></code>)
+<a href="#id1"><span class="problematic" id="id2">**</span></a>kwargs : keyword arguments to embedding function</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nemi.workflow.SingleNemi.predict_clusters">
+<span class="sig-name descname"><span class="pre">predict_clusters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/nemi/workflow.html#SingleNemi.predict_clusters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemi.workflow.SingleNemi.predict_clusters" title="Link to this definition"></a></dt>
+<dd><p>Run the clustering algorithm on the embedding</p>
+<p>Clustering algorithm parameters is set by the <code class="docutils literal notranslate"><span class="pre">clustering_dict</span></code> attribute.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Identified clusters</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nemi.workflow.SingleNemi.sort_clusters">
+<span class="sig-name descname"><span class="pre">sort_clusters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">clusters</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nemi/workflow.html#SingleNemi.sort_clusters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemi.workflow.SingleNemi.sort_clusters" title="Link to this definition"></a></dt>
+<dd><p>Updates cluster labels 0,1,…,k so that each cluster is of descending size.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>(</strong> (<em>clusters</em>) – py:class`~numpy.ndarray`, list)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An array with the new labels</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nemi.workflow.SingleNemi.save">
+<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nemi/workflow.html#SingleNemi.save"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemi.workflow.SingleNemi.save" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nemi.workflow.SingleNemi.load_embedding">
+<span class="sig-name descname"><span class="pre">load_embedding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nemi/workflow.html#SingleNemi.load_embedding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemi.workflow.SingleNemi.load_embedding" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nemi.workflow.SingleNemi.save_embedding">
+<span class="sig-name descname"><span class="pre">save_embedding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nemi/workflow.html#SingleNemi.save_embedding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemi.workflow.SingleNemi.save_embedding" title="Link to this definition"></a></dt>
+<dd><p>Save the embedding to a file</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>filename</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – Filename to save embedding</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nemi.workflow.SingleNemi.plot">
+<span class="sig-name descname"><span class="pre">plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">to_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nemi/workflow.html#SingleNemi.plot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemi.workflow.SingleNemi.plot" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="nemi.html" class="btn btn-neutral float-left" title="nemi package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Maike Sonnewald.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

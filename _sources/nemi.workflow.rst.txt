@@ -1,0 +1,7 @@
+nemi.workflow module
+====================
+
+.. automodule:: nemi.workflow
+   :members:
+   :undoc-members:
+   :show-inheritance:

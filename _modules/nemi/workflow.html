@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>nemi.workflow &mdash; NEMI 1.0.0 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=8d563738"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            NEMI
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../index.html">Welcome to NEMI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">nemi</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">NEMI</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">nemi.workflow</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for nemi.workflow</h1><div class="highlight"><pre>
+<span></span>
+<span class="kn">import</span> <span class="nn">umap</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span> <span class="nn">sklearn.preprocessing</span> <span class="kn">import</span> <span class="n">StandardScaler</span>
+<span class="kn">from</span> <span class="nn">sklearn.cluster</span> <span class="kn">import</span> <span class="n">AgglomerativeClustering</span>
+<span class="kn">from</span> <span class="nn">sklearn.neighbors</span> <span class="kn">import</span> <span class="n">kneighbors_graph</span>
+<span class="c1"># import sciris as sc</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;NEMI&#39;</span><span class="p">,</span> <span class="s1">&#39;SingleNemi&#39;</span><span class="p">]</span>
+
+<span class="n">default_params</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+    <span class="n">embedding_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">min_dist</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">n_components</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="o">=</span><span class="mi">20</span><span class="p">),</span>
+    <span class="n">clustering_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">linkage</span><span class="o">=</span><span class="s1">&#39;ward&#39;</span><span class="p">,</span>  <span class="n">n_clusters</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="o">=</span><span class="mi">40</span><span class="p">)</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="SingleNemi">
+<a class="viewcode-back" href="../../nemi.workflow.html#nemi.workflow.SingleNemi">[docs]</a>
+<span class="k">class</span> <span class="nc">SingleNemi</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A single instance of the NEMI pipeline</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        params (dict, optional): A dictionary of the embedding and clustering options. Defaults to ``nemi.workflow.default_params``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+
+        <span class="c1"># pipeline parameters</span>
+        <span class="c1"># self.params = sc.mergedicts(default_params, params)</span>
+        <span class="c1"># pipeline parameters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">default_params</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">params</span> <span class="k">if</span> <span class="n">params</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{})</span>
+
+        <span class="c1"># set during the run</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">embedding</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clusters</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">return</span>
+    
+<div class="viewcode-block" id="SingleNemi.run">
+<a class="viewcode-back" href="../../nemi.workflow.html#nemi.workflow.SingleNemi.run">[docs]</a>
+    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">save_steps</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Run a single instance of the NEMI pipeline</span>
+
+<span class="sd">        The pipeline consists of steps: </span>
+<span class="sd">        </span>
+<span class="sd">        - fitting the embedding</span>
+<span class="sd">        - predicting the clusters, </span>
+<span class="sd">        - sorting the clusters by descending size</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            X (:py:class:`~numpy.ndarray`): The data contained in a sparse matrix of shape (``n_samples``, ``n_features``)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># fit the embedding</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Fitting the embedding&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fit_embedding</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+        <span class="c1"># predict the clusters</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Predicting the clusters&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clusters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict_clusters</span><span class="p">()</span>
+
+        <span class="c1"># sort the clusters by (descending) size</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Sorting clusters&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clusters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_clusters</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">clusters</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SingleNemi.scale_data">
+<a class="viewcode-back" href="../../nemi.workflow.html#nemi.workflow.SingleNemi.scale_data">[docs]</a>
+    <span class="k">def</span> <span class="nf">scale_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Scale the data to have a mean and variance of 1.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            X (:py:class:`~numpy.ndarray`): The data to pick seeds for. A sparse matrix of shape (``n_samples``, ``n_features``)</span>
+<span class="sd">            **kwargs : keyword arguments to embedding function</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># scale data</span>
+        <span class="n">scaler</span> <span class="o">=</span> <span class="n">StandardScaler</span><span class="p">()</span>
+        <span class="n">scaled_data</span> <span class="o">=</span> <span class="n">scaler</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">scaled_data</span></div>
+
+
+<div class="viewcode-block" id="SingleNemi.fit_embedding">
+<a class="viewcode-back" href="../../nemi.workflow.html#nemi.workflow.SingleNemi.fit_embedding">[docs]</a>
+    <span class="k">def</span> <span class="nf">fit_embedding</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Run the embedding algorithm on the data</span>
+
+<span class="sd">        Args</span>
+<span class="sd">            X (:py:class:`~numpy.ndarray`): The data to pick seeds for. A sparse matrix of shape (``n_samples``, ``n_features``)</span>
+<span class="sd">            **kwargs : keyword arguments to embedding function</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># initialize data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">X</span> <span class="o">=</span> <span class="n">X</span>
+        <span class="c1"># run embedding</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">embedding</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__embedding_algo</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;embedding_dict&#39;</span><span class="p">])(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="SingleNemi.predict_clusters">
+<a class="viewcode-back" href="../../nemi.workflow.html#nemi.workflow.SingleNemi.predict_clusters">[docs]</a>
+    <span class="k">def</span> <span class="nf">predict_clusters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Run the clustering algorithm on the embedding</span>
+
+<span class="sd">        Clustering algorithm parameters is set by the ``clustering_dict`` attribute.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Identified clusters</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__clustering_algo</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;clustering_dict&#39;</span><span class="p">])(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="SingleNemi.sort_clusters">
+<a class="viewcode-back" href="../../nemi.workflow.html#nemi.workflow.SingleNemi.sort_clusters">[docs]</a>
+    <span class="k">def</span> <span class="nf">sort_clusters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">clusters</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Updates cluster labels 0,1,...,k so that each cluster is of descending size.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            clusters (:py:class`~numpy.ndarray`, list)</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            An array with the new labels</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># number of clusters (also the same as the label name in the agglomerated cluster dict)</span>
+        <span class="n">n_clusters</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">clusters</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span>
+        <span class="c1">#  create a histogram of the different clusters</span>
+        <span class="n">hist</span><span class="p">,</span><span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="n">clusters</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_clusters</span><span class="o">+</span><span class="mi">1</span><span class="p">))</span>
+        <span class="c1"># clusters sorted by size (largest to smallest)</span>
+        <span class="n">sorted_clusters</span><span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">hist</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="c1"># assign new labels where labels 0,...,k go in decreasing member size </span>
+        <span class="n">new_labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">clusters</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">new_labels</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">new_label</span><span class="p">,</span> <span class="n">old_label</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sorted_clusters</span><span class="p">):</span>
+            <span class="n">new_labels</span><span class="p">[</span><span class="n">clusters</span> <span class="o">==</span> <span class="n">old_label</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_label</span>
+
+        <span class="k">return</span> <span class="n">new_labels</span></div>
+
+        
+<div class="viewcode-block" id="SingleNemi.save">
+<a class="viewcode-back" href="../../nemi.workflow.html#nemi.workflow.SingleNemi.save">[docs]</a>
+    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fid</span><span class="p">:</span>
+            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fid</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SingleNemi.load_embedding">
+<a class="viewcode-back" href="../../nemi.workflow.html#nemi.workflow.SingleNemi.load_embedding">[docs]</a>
+    <span class="k">def</span> <span class="nf">load_embedding</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">embedding</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SingleNemi.save_embedding">
+<a class="viewcode-back" href="../../nemi.workflow.html#nemi.workflow.SingleNemi.save_embedding">[docs]</a>
+    <span class="k">def</span> <span class="nf">save_embedding</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Save the embedding to a file</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            filename (str): Filename to save embedding</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">embedding</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SingleNemi.plot">
+<a class="viewcode-back" href="../../nemi.workflow.html#nemi.workflow.SingleNemi.plot">[docs]</a>
+    <span class="k">def</span> <span class="nf">plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">to_plot</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">to_plot</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;embedding&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_plot_embedding</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">to_plot</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;clusters&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_plot_clusters</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span> <span class="nf">_plot_embedding</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">subsample</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.4</span><span class="p">):</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embedding</span>
+
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;Embedding not consistent with plotting function&#39;</span><span class="p">)</span>
+
+        <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="o">*</span><span class="n">data</span><span class="p">[::</span><span class="n">subsample</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_plot_clusters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">subsample</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.4</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_plot_embedding</span><span class="p">(</span><span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">subsample</span><span class="o">=</span><span class="n">subsample</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">)</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embedding</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span>
+        <span class="n">labels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clusters</span>
+        <span class="n">unique_labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">labels</span><span class="p">))</span>
+        <span class="n">colors</span> <span class="o">=</span> <span class="p">[</span><span class="n">plt</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">tab20</span><span class="p">(</span><span class="n">each</span><span class="p">)</span> <span class="k">for</span> <span class="n">each</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">unique_labels</span><span class="p">))]</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">col</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">unique_labels</span><span class="p">,</span> <span class="n">colors</span><span class="p">):</span>
+            <span class="n">class_member_mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">labels</span> <span class="o">==</span> <span class="n">k</span><span class="p">)</span>
+            <span class="n">xy</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">class_member_mask</span><span class="p">,</span> <span class="p">:]</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="o">*</span><span class="n">xy</span><span class="p">[::</span><span class="n">subsample</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">col</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">)),</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>      
+
+
+    <span class="k">def</span> <span class="nf">__embedding_algo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">umap</span><span class="o">.</span><span class="n">UMAP</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span><span class="o">.</span><span class="n">fit_transform</span>
+
+    <span class="k">def</span> <span class="nf">__clustering_algo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Clustering step</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            n_neighbors (int): Number of neighbors for each sample of the kneighbors_graph. Defaults to 40.</span>
+<span class="sd">                   </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Create a graph capturing local connectivity. Larger number of neighbors</span>
+        <span class="c1"># will give more homogeneous clusters to the cost of computation</span>
+        <span class="c1"># time. A very large number of neighbors gives more evenly distributed</span>
+        <span class="c1"># cluster sizes, but may not impose the local manifold structure of</span>
+        <span class="c1"># the data</span>
+        <span class="n">knn_graph</span> <span class="o">=</span> <span class="n">kneighbors_graph</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">embedding</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;n_neighbors&#39;</span><span class="p">],</span> <span class="n">include_self</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">AgglomerativeClustering</span><span class="p">(</span><span class="n">linkage</span><span class="o">=</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;linkage&#39;</span><span class="p">],</span>
+                                            <span class="n">connectivity</span><span class="o">=</span><span class="n">knn_graph</span><span class="p">,</span>
+                                            <span class="n">n_clusters</span><span class="o">=</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;n_clusters&#39;</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">fit_predict</span>                          </div>
+
+
+
+<div class="viewcode-block" id="NEMI">
+<a class="viewcode-back" href="../../nemi.workflow.html#nemi.workflow.NEMI">[docs]</a>
+<span class="k">class</span> <span class="nc">NEMI</span><span class="p">(</span><span class="n">SingleNemi</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; Main NEMI workflow</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        params (dict, optional): clustering and enbedding algorithm parameters.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># pipeline parameters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">default_params</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">params</span> <span class="k">if</span> <span class="n">params</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_id</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="NEMI.run">
+<a class="viewcode-back" href="../../nemi.workflow.html#nemi.workflow.NEMI.run">[docs]</a>
+    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Run the NEMI pipeline</span>
+
+<span class="sd">        The pipeline consists of steps: </span>
+<span class="sd">        </span>
+<span class="sd">        - fitting the embedding</span>
+<span class="sd">        - predicting the clusters, </span>
+<span class="sd">        - sorting the clusters by descending size</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            X (:py:class:`~numpy.ndarray`): The data contained in a sparse matrix of shape (``n_samples``, ``n_features``)</span>
+<span class="sd">            n (int, optional): Number of iterations to run. Defaults to 1.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># initialize the pack</span>
+            <span class="n">nemi_pack</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="c1"># run the pack</span>
+            <span class="k">for</span> <span class="n">member</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)):</span>
+                <span class="c1"># create nemi instance</span>
+                <span class="n">nemi</span> <span class="o">=</span> <span class="n">SingleNemi</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+                <span class="c1"># run single instance</span>
+                <span class="n">nemi</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>        
+                <span class="c1"># add to the pack</span>
+                <span class="n">nemi_pack</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nemi</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">nemi_pack</span> <span class="o">=</span> <span class="n">nemi_pack</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">assess_overlap</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="NEMI.plot">
+<a class="viewcode-back" href="../../nemi.workflow.html#nemi.workflow.NEMI.plot">[docs]</a>
+    <span class="k">def</span> <span class="nf">plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">to_plot</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">plot_ensemble</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+
+        <span class="k">if</span> <span class="n">plot_ensemble</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">nemi</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nemi_pack</span><span class="p">:</span>
+                <span class="n">nemi</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">to_plot</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">to_plot</span> <span class="o">==</span> <span class="s1">&#39;clusters&#39;</span><span class="p">:</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="s1">&#39;clusters&#39;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="NEMI.assess_overlap">
+<a class="viewcode-back" href="../../nemi.workflow.html#nemi.workflow.NEMI.assess_overlap">[docs]</a>
+    <span class="k">def</span> <span class="nf">assess_overlap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base_id</span><span class="p">:</span><span class="nb">int</span> <span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_clusters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Assess the overlap between the clusters.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            base_id (int, optional): index (starting at 0) of ensemble member to use as the base comparison</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_id</span> <span class="o">=</span> <span class="n">base_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">embedding</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nemi_pack</span><span class="p">[</span><span class="n">base_id</span><span class="p">]</span><span class="o">.</span><span class="n">embedding</span>
+
+        <span class="c1"># list of ensemble members we are comparing to the base</span>
+        <span class="n">compare_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nemi_pack</span><span class="p">))]</span>
+        <span class="n">compare_ids</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">base_id</span><span class="p">)</span>
+
+        <span class="c1"># identify clusters from the base ensemble member</span>
+        <span class="n">base_labels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nemi_pack</span><span class="p">[</span><span class="n">base_id</span><span class="p">]</span><span class="o">.</span><span class="n">clusters</span>
+
+        <span class="c1"># number of clusters</span>
+        <span class="n">num_clusters</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">base_labels</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># if not pre-set, set max number of clusters to total number of clusters in the base</span>
+        <span class="k">if</span> <span class="n">max_clusters</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">max_clusters</span> <span class="o">=</span> <span class="n">num_clusters</span>
+
+        <span class="n">sortedOverlap</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">compare_ids</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_clusters</span><span class="p">,</span> <span class="n">base_labels</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="n">num_clusters</span><span class="p">,</span> <span class="n">max_clusters</span><span class="p">)</span>
+        <span class="n">summaryStats</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">num_clusters</span><span class="p">,</span> <span class="n">max_clusters</span><span class="p">))</span>
+
+        <span class="c1"># compile sorted cluster data</span>
+        <span class="c1"># TODO: add assert statement to make sure that the clusters have been sorted?</span>
+        <span class="n">dataVector</span><span class="o">=</span><span class="p">[</span><span class="n">nemi</span><span class="o">.</span><span class="n">clusters</span> <span class="k">for</span> <span class="nb">id</span><span class="p">,</span> <span class="n">nemi</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nemi_pack</span><span class="p">)</span> <span class="k">if</span> <span class="nb">id</span> <span class="o">!=</span> <span class="n">base_id</span><span class="p">]</span>
+
+        <span class="c1"># loop over ensemble members, not including the base member</span>
+        <span class="k">for</span> <span class="n">compare_cnt</span><span class="p">,</span> <span class="n">compare_id</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">compare_ids</span><span class="p">):</span>
+            <span class="c1"># grab clusters of ensemble member</span>
+            <span class="n">compare_labels</span><span class="o">=</span> <span class="n">dataVector</span><span class="p">[</span><span class="n">compare_cnt</span><span class="p">]</span>
+
+            <span class="c1"># go through each cluster in the base and assess the percentage overlap</span>
+            <span class="c1"># for every cluster in the ensemble member (overlap / total coverage area) </span>
+            <span class="k">for</span> <span class="n">c1</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_clusters</span><span class="p">):</span> 
+                <span class="c1"># Initialize dummy array to mark location of the cluster for the base member</span>
+                <span class="n">data1_M</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">base_labels</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+                <span class="c1"># mark where the considered cluster is in the member that is being used as the baseline</span>
+                <span class="n">data1_M</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">c1</span><span class="o">==</span><span class="n">base_labels</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">1</span> 
+                <span class="c1"># # Count numer of entries [Why?] </span>
+                <span class="n">summaryStats</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">c1</span><span class="p">]</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">data1_M</span><span class="p">)</span> 
+
+                <span class="c1"># go through each cluster</span>
+                <span class="c1"># k = 0</span>
+                <span class="k">for</span> <span class="n">c2</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_clusters</span><span class="p">):</span>
+                    <span class="c1"># Initialize dummy array to mark where the cluster is in the comparison member</span>
+                    <span class="n">data2_M</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">base_labels</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span> 
+
+                    <span class="c1"># mark where the considered cluster is in the member that is being used as the comparison</span>
+                    <span class="n">data2_M</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">c2</span><span class="o">==</span><span class="n">compare_labels</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">1</span>    
+
+                    <span class="c1"># Sum of flags where the two datasets of that cluster are both present</span>
+                    <span class="n">num_overlap</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">data1_M</span><span class="o">*</span><span class="n">data2_M</span><span class="p">)</span>       
+
+                    <span class="c1">#Sum of where they overlap</span>
+                    <span class="n">num_total</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">data1_M</span> <span class="o">|</span> <span class="n">data2_M</span><span class="p">)</span>       
+
+                    <span class="c1">#Collect the number that is largest of k and the num_overlap/num_total</span>
+                    <span class="c1"># k = max(k, num_overlap / num_total)       </span>
+                    <span class="n">summaryStats</span><span class="p">[</span><span class="n">c2</span><span class="p">,</span> <span class="n">c1</span><span class="p">]</span><span class="o">=</span><span class="p">(</span><span class="n">num_overlap</span> <span class="o">/</span> <span class="n">num_total</span><span class="p">)</span><span class="o">*</span><span class="mi">100</span> <span class="c1"># Add percentage of coverage</span>
+
+                <span class="c1">#Filled in &#39;summaryStatistics&#39; matrix results of percentage overlaps</span>
+
+            <span class="n">usedClusters</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span> <span class="c1"># Used to mak sure clusters don&#39;t get selected twice</span>
+            <span class="c1">#Clusters are already sorted by size</span>
+            
+            <span class="n">sortedOverlapForOneCluster</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">base_labels</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+            <span class="c1"># go through clusters from (biggest to smallest since they are sorted)</span>
+            <span class="k">for</span> <span class="n">c1</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_clusters</span><span class="p">):</span>  
+                <span class="n">sortedOverlapForOneCluster</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">base_labels</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+                <span class="c1">#print(&#39;cluster number &#39;, c1, summaryStats.shape, summaryStats[1:,c1-1].shape)</span>
+
+                <span class="c1"># find biggest cluster in first column, making sure it has not been used</span>
+                <span class="n">sortedClusters</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">summaryStats</span><span class="p">[:,</span> <span class="n">c1</span><span class="p">])[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">biggestCluster</span> <span class="o">=</span> <span class="p">[</span><span class="n">ele</span> <span class="k">for</span> <span class="n">ele</span> <span class="ow">in</span> <span class="n">sortedClusters</span> <span class="k">if</span> <span class="n">ele</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">usedClusters</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+                <span class="c1"># record it for later</span>
+                <span class="n">usedClusters</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">biggestCluster</span><span class="p">)</span>
+
+                <span class="c1"># Initialize dummy array</span>
+                <span class="n">data2_M</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">base_labels</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+                <span class="c1"># Select which country is being assessed</span>
+                <span class="n">data2_M</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">biggestCluster</span> <span class="o">==</span> <span class="n">compare_labels</span><span class="p">)]</span><span class="o">=</span><span class="mi">1</span> <span class="c1"># Select cluster being assessed</span>
+
+                <span class="n">sortedOverlapForOneCluster</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">data2_M</span><span class="o">==</span><span class="mi">1</span><span class="p">)]</span><span class="o">=</span><span class="mi">1</span>
+                <span class="n">sortedOverlap</span><span class="p">[</span><span class="n">compare_id</span><span class="p">,</span> <span class="n">c1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">sortedOverlapForOneCluster</span>
+
+        <span class="c1"># fill in the base entry in the sorted overlap</span>
+        <span class="k">for</span> <span class="n">c1</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_clusters</span><span class="p">):</span>  
+            <span class="n">sortedOverlap</span><span class="p">[</span><span class="n">base_id</span><span class="p">,</span> <span class="n">c1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">*</span> <span class="p">(</span><span class="n">base_labels</span> <span class="o">==</span> <span class="n">c1</span><span class="p">)</span>
+
+        <span class="c1"># majority vote</span>
+        <span class="n">aggOverlaps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nansum</span><span class="p">(</span><span class="n">sortedOverlap</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">voteOverlaps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">aggOverlaps</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># save clusters estimated from the ensemble</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clusters</span> <span class="o">=</span> <span class="n">voteOverlaps</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Maike Sonnewald.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

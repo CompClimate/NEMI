@@ -14,6 +14,23 @@ help:
 
 .PHONY: help Makefile
 
+.PHONY: clean
+clean:
+	rm -rf $(BUILDDIR)/*
+	rm -rf nemi*.rst
+	rm -rf modules.rst
+
+# generates the API docs
+.PHONY: generate-api
+generate-api: 
+	-rm modules.rst
+	sphinx-apidoc -f -e -M -o . ../nemi
+
+# serve on local
+.PHONY: serve
+serve:
+	python -m http.server 4000 -d _build/html/
+
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile

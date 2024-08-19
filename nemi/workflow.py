@@ -215,7 +215,7 @@ class NEMI(SingleNemi):
         self.params.update(params if params is not None else {})
         self.base_id = None
 
-    def run(self, X, n=1):
+    def run(self, X, n=1, base_id=0):
         """ Run the NEMI pipeline
 
         The pipeline consists of steps: 
@@ -245,7 +245,77 @@ class NEMI(SingleNemi):
 
             self.nemi_pack = nemi_pack
 
-        self.assess_overlap()
+        self.overlap = self.assess_overlap(base_id=base_id)
+        self.entropy = self.get_entropy(base_id=base_id)
+        
+
+    def calc_entropy(self,row,i=0):
+
+        """
+        Calculates entropy
+        
+        """
+    
+        data = row['counts']
+        L = sum(data)
+        n = len(data)
+        
+        if n != 1:
+            ress = 0
+            for i in range(n):
+                ress =  ress - (data[i]/L * np.log2(data[i]/L))
+                                
+        else:
+                                
+            ress = - (data[i]/L * np.log2(data[i]/L))
+        
+        return ress
+
+    def apply_entropy(self,data):
+
+        """
+        Applies entropy calucaltion to data
+        
+        
+        """
+        
+        df = pd.DataFrame(data)
+        df_c = pd.DataFrame(
+            df.stack().groupby(level=0).apply(lambda x: np.unique(x, return_inverse=True, return_counts=True)[2])
+        )
+        df_c.columns = ['counts']
+        df_c['entropy'] = df_c.apply(self.calc_entropy, axis=1)
+
+        return df_c
+
+
+
+    def get_entropy(self,base_id=0):
+
+        """
+        Returns entropy
+        A dataframe is created from sorted overlap array
+        columns are different ensembles and rows are data points
+        
+        """
+        
+        sortedOverlap = self.overlap
+        sortedOverlap_ = np.nan_to_num(sortedOverlap) # nan to zero
+        df = pd.DataFrame(np.argmax(sortedOverlap_,axis=1)).T
+        df = df.astype('int64')
+        df_c = self.apply_entropy(data=df)    
+
+
+        # %
+        # nc = max(self.clusters) + 1
+        # max_ent = -np.log2(1/nc)
+        # df_c = df_c/max_ent
+        # df_c *= 100
+        
+        return np.asanyarray(df_c.entropy)
+        
+        
+        
 
     def plot(self, to_plot=None, plot_ensemble=False, **kwargs):
 
@@ -360,3 +430,5 @@ class NEMI(SingleNemi):
 
         # save clusters estimated from the ensemble
         self.clusters = voteOverlaps
+
+        return sortedOverlap

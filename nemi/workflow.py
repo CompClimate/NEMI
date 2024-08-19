@@ -9,6 +9,7 @@ from collections import OrderedDict
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.neighbors import kneighbors_graph
+import pandas as pd
 # import sciris as sc
 
 __all__ = ['NEMI', 'SingleNemi']

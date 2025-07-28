@@ -1,5 +1,5 @@
 """
-Takes cluster labels of shape (n_ens,npts)
+Takes cluster labels of shape (nens,npts) - nemi_pack
 Calculates entropy and overlap
 """
 
@@ -31,7 +31,7 @@ class Entropy():
         # return        
 
 
-    def get_overlap(self,base_id, max_clusters=None, ):
+    def relabel(self,base_id, max_clusters=None, ):
 
         """
         Written by Maike Sonnewald
@@ -132,6 +132,11 @@ class Entropy():
     
     def _entropy(self,row,i=0):
 
+        """
+        Calculates entropy 
+        called by get_entropy()
+        """
+
         data = row['counts']
         L = sum(data) # ensemble size
         n = len(data) # number counts
@@ -152,6 +157,11 @@ class Entropy():
 
     def get_entropy(self):
 
+        """
+        Realabels ensemble members for different base_ids
+        Then calculates entropy; note _entropy() is applied 
+        over columns of DataFrames containing counts
+        """
 
         ent_lst = []
         df_count = []
@@ -162,7 +172,7 @@ class Entropy():
                 print('Running for..'+str(bid)+'th member')
             # self._log('Running for..'+str(bid)+'th member')
 
-            ov = self.get_overlap(base_id=bid) # calculates relabelled clusters for a given base_id
+            ov = self.relabel(base_id=bid) # calculates relabelled clusters for a given base_id
             ov = np.nan_to_num(ov)
             df = pd.DataFrame(np.argmax(ov,axis=1)).T
             df = df.astype('int64')
@@ -177,17 +187,22 @@ class Entropy():
             df_count.append(df_c)
             ov_lst.append(ov)
             
-        self.count = df_count
         self.ov = np.array(ov_lst)
         
         return np.asanyarray(ent_lst)
 
 
-# -----------------
+# -------------------------------------------------------------------------------------
+    """
+    Experimental: multiprocessing.pool to speed up?!
+    """
 
     def entropy_for_bid(self,bid):
 
-        ov = self.get_overlap(base_id=bid) # calculates relabelled clusters for a given base_id
+        """
+        Calculate relabelling and entropy for a single base_id
+        """
+        ov = self.relabel(base_id=bid) # calculates relabelled clusters for a given base_id
         ov = np.nan_to_num(ov)
         df = pd.DataFrame(np.argmax(ov,axis=1)).T
         df = df.astype('int64')
@@ -198,24 +213,37 @@ class Entropy():
         ent =  df_c.apply(self._entropy, axis=1) # entropy
         EntMax = (-1) * self.nc * (1/self.nc) * np.log2(1/self.nc)
 
-        return np.asanyarray((ent * 100)/EntMax)
+        return np.array((ent * 100)/EntMax)
         # self.count = df_c
         # self.ov = ov   
     
     def run_parallel(self):
+
+        """
+        Use multiplrocess to apply entropy_for_bid() for different baselabel_ids     
+        """
         bids = list(range(self.nens))
         with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
             results = pool.map(self.entropy_for_bid, bids)
         return np.array(results)
 
-# --------------------
-    def overlap(self):
+# -------------------------------------------------------------------------------------
+    
+    def get_overlap(self):
+
+        """
+        Calculates overlap from relabeled ensemble members
+        Output array shape: (nens,nens)
+        For each member, nens number of pairs, e.g., for base_id 0 with nens = 3, pairs are - 0 and 1, 0 and 2, 0 and 3.
+        Similarly for base_id 1, pairs are - 1 and 0, 1 and 2, 1 and 3.
+        overlap with itself 100% but used as nan in the output array
+        """
 
         ovlp = np.zeros((self.nens,self.nens)) * np.nan
         array = self.ov # (ens,ens,nc,npts)
         for bid in range(self.nens):  
             for j in range(self.nens):
-                if bid==j:
+                if bid==j: # overlap with itself
                     continue
                     
                 count = 0

@@ -14,8 +14,10 @@ from sklearn.neighbors import kneighbors_graph
 __all__ = ['NEMI', 'SingleNemi']
 
 default_params = dict(
-    embedding_dict = dict(min_dist=0.0, n_components=3, n_neighbors=20),
-    clustering_dict = dict(linkage='ward',  n_clusters=30, n_neighbors=40)
+    device="cpu",
+    embedding_dict=dict(min_dist=0.0, n_components=3, n_neighbors=20),
+    clustering_dict=dict(method="agglomerative", linkage="ward",
+                         n_clusters=30, n_neighbors=40),
 )
 
 
@@ -90,8 +92,10 @@ class SingleNemi():
 
         # initialize data
         self.X = X
-        # run embedding
-        self.embedding = self.__embedding_algo(**self.params['embedding_dict'])(self.X)
+        # run embedding on the configured device (cpu: umap-learn, gpu: cuML)
+        embedding_fn = self.__embedding_algo(self.params['device'],
+                                             **self.params['embedding_dict'])
+        self.embedding = embedding_fn(self.X)
 
 
     def predict_clusters(self):
@@ -180,7 +184,10 @@ class SingleNemi():
             ax.scatter(*xy[::subsample].T, c=np.array(col).reshape((1,-1)), s=s, alpha=1, zorder=4)      
 
 
-    def __embedding_algo(self, **kwargs):
+    def __embedding_algo(self, device, **kwargs):
+        if device == "gpu":
+            from cuml.manifold import UMAP as cuUMAP
+            return cuUMAP(**kwargs).fit_transform
         return umap.UMAP(**kwargs).fit_transform
 
     def __clustering_algo(self, **kwargs):

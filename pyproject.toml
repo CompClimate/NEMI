@@ -14,7 +14,9 @@ dependencies = [
     "umap-learn",
     "scikit-learn",
     "matplotlib",
-    "tqdm"
+    "tqdm",
+    "numpy",
+    "pyyaml"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -23,6 +25,10 @@ classifiers = [
 
 [project.optional-dependencies]
 full = ["pytest"]
+gpu = ["cupy-cuda12x"]   # cuML comes from RAPIDS (conda); cupy pip wheel listed for convenience
+
+[project.scripts]
+nemi = "nemi.cli:main"
 
 [tool.setuptools]
 packages = ["nemi"]

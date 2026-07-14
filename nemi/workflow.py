@@ -7,7 +7,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from collections import OrderedDict
 from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import AgglomerativeClustering
+from sklearn.cluster import AgglomerativeClustering, DBSCAN, HDBSCAN
 from sklearn.neighbors import kneighbors_graph
 # import sciris as sc
 
@@ -101,13 +101,22 @@ class SingleNemi():
     def predict_clusters(self):
         """ Run the clustering algorithm on the embedding
 
-        Clustering algorithm parameters is set by the ``clustering_dict`` attribute.
+        Method and parameters are set by the ``clustering_dict`` attribute.
 
         Returns:
             Identified clusters
         """
+        device = self.params['device']
+        cluster_params = dict(self.params['clustering_dict'])
+        print(f"Clustering | device={device} | {cluster_params}")
 
-        return self.__clustering_algo(**self.params['clustering_dict'])(self.X)
+        if device == "gpu":
+            labels = self.__cluster_gpu(**cluster_params)
+        else:
+            labels = self.__cluster_cpu(**cluster_params)
+
+        print(f"Clusters found: {int(np.max(labels)) + 1}")
+        return labels
 
 
     def sort_clusters(self, clusters):
@@ -190,23 +199,58 @@ class SingleNemi():
             return cuUMAP(**kwargs).fit_transform
         return umap.UMAP(**kwargs).fit_transform
 
-    def __clustering_algo(self, **kwargs):
-        """ Clustering step
-
-        Args:
-            n_neighbors (int): Number of neighbors for each sample of the kneighbors_graph. Defaults to 40.
-                   
-        """
-        # Create a graph capturing local connectivity. Larger number of neighbors
-        # will give more homogeneous clusters to the cost of computation
-        # time. A very large number of neighbors gives more evenly distributed
-        # cluster sizes, but may not impose the local manifold structure of
-        # the data
-        knn_graph = kneighbors_graph(self.embedding, kwargs['n_neighbors'], include_self=False)
-        model = AgglomerativeClustering(linkage=kwargs['linkage'],
+    def __cluster_cpu(self, method="agglomerative", **kwargs):
+        if method == "agglomerative":
+            # Create a graph capturing local connectivity. Larger number of
+            # neighbors will give more homogeneous clusters to the cost of
+            # computation time. A very large number of neighbors gives more
+            # evenly distributed cluster sizes, but may not impose the local
+            # manifold structure of the data
+            knn_graph = kneighbors_graph(self.embedding, kwargs['n_neighbors'],
+                                         include_self=False)
+            model = AgglomerativeClustering(linkage=kwargs['linkage'],
                                             connectivity=knn_graph,
                                             n_clusters=kwargs['n_clusters'])
-        return model.fit_predict                          
+            # TODO(possible bug): distances are computed on native ``self.X``
+            # while the connectivity graph is built from ``self.embedding``.
+            # The docstring says clustering is "on the embedding", which would
+            # be ``self.embedding`` here.  Left UNCHANGED pending confirmation
+            # from the NEMI authors, since this is the as-published behavior.
+            return model.fit_predict(self.X)
+        elif method == "dbscan":
+            model = DBSCAN(eps=kwargs['eps'], min_samples=kwargs['min_samples'])
+        elif method == "hdbscan":
+            model = HDBSCAN(min_cluster_size=kwargs['min_cluster_size'],
+                            min_samples=kwargs['min_samples'])
+        else:
+            raise ValueError(f"unknown clustering method '{method}'")
+        return model.fit_predict(self.embedding)
+
+    def __cluster_gpu(self, method="agglomerative", **kwargs):
+        import cupy as cp
+        from cuml import cluster as cucluster
+
+        # GPU clusters the EMBEDDING for every method.  NOTE: this differs from
+        # the CPU agglomerative path, which computes ward distances on native
+        # ``self.X`` under manifold connectivity (see TODO in __cluster_cpu).
+        # cuML agglomerative supports single linkage only and builds its own
+        # kNN connectivity, so here both linkage AND distances are on the
+        # embedding.
+        X_gpu = cp.asarray(self.embedding)
+        if method == "agglomerative":
+            model = cucluster.AgglomerativeClustering(
+                n_clusters=kwargs['n_clusters'], connectivity='knn',
+                linkage='single', n_neighbors=kwargs['n_neighbors'])
+        elif method == "dbscan":
+            model = cucluster.DBSCAN(eps=kwargs['eps'],
+                                     min_samples=kwargs['min_samples'])
+        elif method == "hdbscan":
+            model = cucluster.HDBSCAN(min_cluster_size=kwargs['min_cluster_size'],
+                                      min_samples=kwargs['min_samples'])
+        else:
+            raise ValueError(f"unknown clustering method '{method}'")
+        model.fit(X_gpu)
+        return cp.asnumpy(model.labels_)
 
 
 class NEMI(SingleNemi):

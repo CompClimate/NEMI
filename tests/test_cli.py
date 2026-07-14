@@ -8,6 +8,7 @@ real clustering run.
 import numpy as np
 import pytest
 import yaml
+from sklearn.datasets import make_blobs
 
 from nemi import cli
 from nemi.cli import NemiConfig
@@ -131,12 +132,15 @@ def test_unknown_config_key_raises(tmp_path):
 
 # --- main(): up to NEMI instantiation -------------------------------------
 
-def test_main_cpu_instantiates_nemi(tmp_path):
+def test_main_cpu_runs_and_saves(tmp_path):
     data = tmp_path / "d.npy"
-    np.save(data, np.random.random((20, 4)))
-    nemi = cli.main([str(data), "-o", str(tmp_path / "o.npy")])
-    assert nemi.params["device"] == "cpu"
-    assert nemi.params["clustering_dict"]["method"] == "agglomerative"
+    np.save(data, make_blobs(n_samples=60, n_features=4, centers=3, random_state=0)[0])
+    out = tmp_path / "o.npz"
+    nemi = cli.main([str(data), "-o", str(out),
+                     "--embed-n-neighbors", "10", "--n-clusters", "3",
+                     "--cluster-n-neighbors", "10"])
+    assert nemi.clusters.shape == (60,)
+    assert out.exists()
 
 
 def test_main_gpu_ward_raises_before_gpu_check(tmp_path):

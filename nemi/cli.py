@@ -193,11 +193,13 @@ def main(argv=None):
     X = np.load(cfg.input)
     nemi = NEMI(params=cfg.to_params())
 
-    print(f"NEMI ready | device={cfg.device} clustering={cfg.clustering} "
+    print(f"Running NEMI | device={cfg.device} clustering={cfg.clustering} "
           f"n_members={cfg.n_members} assess_overlap={cfg.assess_overlap} "
           f"X={X.shape} -> {cfg.output}")
-    # NOTE: device + clustering-method dispatch and the actual run/save are the
-    # NEXT step; this entry point currently stops at instantiation.
+    # TODO: cfg.scale is captured but not wired — run() does not apply
+    # StandardScaler yet (see SingleNemi.scale_data).
+    # TODO: cfg.seed is captured but not wired — no reproducible-ensemble seeding.
+    nemi.run(X, n=cfg.n_members, assess_overlap=cfg.assess_overlap, output=cfg.output)
     return nemi
 
 

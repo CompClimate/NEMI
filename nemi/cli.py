@@ -35,6 +35,7 @@ class NemiConfig:
     n_members: int = 1
     seed: int | None = None
     scale: bool = True
+    assess_overlap: bool = True
     # embedding (UMAP)
     n_components: int = 3
     embed_n_neighbors: int = 20
@@ -127,6 +128,10 @@ def build_parser() -> argparse.ArgumentParser:
                    default=argparse.SUPPRESS)
     g.add_argument("--no-scale", dest="scale", action="store_false",
                    default=argparse.SUPPRESS)
+    g.add_argument("--assess-overlap", dest="assess_overlap", action="store_true",
+                   default=argparse.SUPPRESS)
+    g.add_argument("--no-assess-overlap", dest="assess_overlap", action="store_false",
+                   default=argparse.SUPPRESS)
 
     g = p.add_argument_group("embedding (UMAP)")
     g.add_argument("--n-components", type=int, dest="n_components",
@@ -189,7 +194,8 @@ def main(argv=None):
     nemi = NEMI(params=cfg.to_params())
 
     print(f"NEMI ready | device={cfg.device} clustering={cfg.clustering} "
-          f"n_members={cfg.n_members} X={X.shape} -> {cfg.output}")
+          f"n_members={cfg.n_members} assess_overlap={cfg.assess_overlap} "
+          f"X={X.shape} -> {cfg.output}")
     # NOTE: device + clustering-method dispatch and the actual run/save are the
     # NEXT step; this entry point currently stops at instantiation.
     return nemi

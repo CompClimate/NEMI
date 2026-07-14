@@ -266,18 +266,24 @@ class NEMI(SingleNemi):
         self.params.update(params if params is not None else {})
         self.base_id = None
 
-    def run(self, X, n=1):
+    def run(self, X, n=1, assess_overlap=True):
         """ Run the NEMI pipeline
 
-        The pipeline consists of steps: 
-        
+        The pipeline consists of steps:
+
         - fitting the embedding
-        - predicting the clusters, 
+        - predicting the clusters,
         - sorting the clusters by descending size
 
         Args:
             X (:py:class:`~numpy.ndarray`): The data contained in a sparse matrix of shape (``n_samples``, ``n_features``)
             n (int, optional): Number of iterations to run. Defaults to 1.
+            assess_overlap (bool, optional): after building the ensemble, run the
+                cross-member co-location + majority vote to set ``self.clusters``.
+                Set False to keep the raw ``self.nemi_pack`` (per-member
+                embeddings and clusters) for downstream analysis — e.g.
+                geographic overlap/entropy in another repo. Ignored when
+                ``n == 1``. Defaults to True.
         """
         if n == 1:
             super().run(X)
@@ -296,7 +302,8 @@ class NEMI(SingleNemi):
 
             self.nemi_pack = nemi_pack
 
-        self.assess_overlap()
+        if assess_overlap:
+            self.assess_overlap()
 
     def plot(self, to_plot=None, plot_ensemble=False, **kwargs):
 

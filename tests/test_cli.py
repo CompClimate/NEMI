@@ -112,6 +112,16 @@ def test_cli_overrides_config(tmp_path):
     assert cfg.device == "gpu"          # CLI wins over config
 
 
+def test_assess_overlap_defaults_true():
+    cfg, _ = _cfg(["d.npy", "-o", "o.npy"])
+    assert cfg.assess_overlap is True
+
+
+def test_no_assess_overlap_flag():
+    cfg, _ = _cfg(["d.npy", "-o", "o.npy", "--no-assess-overlap"])
+    assert cfg.assess_overlap is False
+
+
 def test_unknown_config_key_raises(tmp_path):
     cfgfile = tmp_path / "c.yaml"
     cfgfile.write_text(yaml.safe_dump({"input": "d", "output": "o", "bogus": 1}))

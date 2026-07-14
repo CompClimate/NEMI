@@ -25,7 +25,14 @@ classifiers = [
 
 [project.optional-dependencies]
 full = ["pytest"]
-gpu = ["cupy-cuda12x"]   # cuML comes from RAPIDS (conda); cupy pip wheel listed for convenience
+gpu = [
+    "cupy-cuda12x",       # cuML comes from RAPIDS (conda); cupy pip wheel listed for convenience
+    # RAPIDS/cuML 25.06 forces older satellite libs; cap these so both cuML and
+    # the CPU umap path import in the GPU env (base install stays unpinned).
+    "scikit-learn<1.6",   # cuML 25.06 needs 1.5.x; 1.6 renamed check_array's finite kwarg
+    "umap-learn<0.5.7",   # 0.5.7+ calls sklearn 1.6's ensure_all_finite
+    "numpy<2.5",          # numba (via umap-learn / cuML) ceiling
+]
 
 [project.scripts]
 nemi = "nemi.cli:main"

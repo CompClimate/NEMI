@@ -44,17 +44,19 @@ class SingleNemi():
 
         return
     
-    def run(self, X, save_steps=True):
+    def run(self, X, output=None):
         """ Run a single instance of the NEMI pipeline
 
-        The pipeline consists of steps: 
-        
+        The pipeline consists of steps:
+
         - fitting the embedding
-        - predicting the clusters, 
+        - predicting the clusters,
         - sorting the clusters by descending size
 
         Args:
             X (:py:class:`~numpy.ndarray`): The data contained in a sparse matrix of shape (``n_samples``, ``n_features``)
+            output (str, optional): if given, write embedding + clusters to this
+                ``.npz`` path (keys: ``embedding``, ``clusters``).
         """
 
         # fit the embedding
@@ -68,6 +70,9 @@ class SingleNemi():
         # sort the clusters by (descending) size
         print('Sorting clusters')
         self.clusters = self.sort_clusters(self.clusters)
+
+        if output is not None:
+            self.save_outputs(output)
 
     def scale_data(self, X):
         """ Scale the data to have a mean and variance of 1.
@@ -143,6 +148,10 @@ class SingleNemi():
 
         return new_labels
         
+    def save_outputs(self, path):
+        """ Save embedding + clusters to a single .npz (keys: embedding, clusters). """
+        np.savez(path, embedding=self.embedding, clusters=self.clusters)
+
     def save(self, filename):
         with open(filename, 'wb') as fid:
             pickle.dump(self, fid)
@@ -266,7 +275,7 @@ class NEMI(SingleNemi):
         self.params.update(params if params is not None else {})
         self.base_id = None
 
-    def run(self, X, n=1, assess_overlap=True):
+    def run(self, X, n=1, assess_overlap=True, output=None):
         """ Run the NEMI pipeline
 
         The pipeline consists of steps:
@@ -284,9 +293,14 @@ class NEMI(SingleNemi):
                 embeddings and clusters) for downstream analysis — e.g.
                 geographic overlap/entropy in another repo. Ignored when
                 ``n == 1``. Defaults to True.
+            output (str, optional): if given, write the consensus embedding +
+                clusters to this ``.npz`` path (keys: ``embedding``,
+                ``clusters``).  Requires assess_overlap=True; with
+                assess_overlap=False there is no consensus and nothing is
+                written (use ``self.nemi_pack`` downstream).
         """
         if n == 1:
-            super().run(X)
+            super().run(X, output=output)
             return
         else:
             # initialize the pack
@@ -296,7 +310,7 @@ class NEMI(SingleNemi):
                 # create nemi instance
                 nemi = SingleNemi(params=self.params)
                 # run single instance
-                nemi.run(X)        
+                nemi.run(X)
                 # add to the pack
                 nemi_pack.append(nemi)
 
@@ -304,6 +318,13 @@ class NEMI(SingleNemi):
 
         if assess_overlap:
             self.assess_overlap()
+
+        if output is not None:
+            if assess_overlap:
+                self.save_outputs(output)      # consensus embedding + clusters
+            else:
+                print("output not saved: assess_overlap=False produced no "
+                      "consensus (use nemi_pack for downstream)")
 
     def plot(self, to_plot=None, plot_ensemble=False, **kwargs):
 

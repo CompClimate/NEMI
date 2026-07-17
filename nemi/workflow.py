@@ -249,7 +249,7 @@ class SingleNemi():
         if method == "agglomerative":
             model = cucluster.AgglomerativeClustering(
                 n_clusters=kwargs['n_clusters'], connectivity='knn',
-                linkage='single', c=kwargs['c'])
+                linkage='single', n_neighbors=kwargs['n_neighbors'])
         elif method == "dbscan":
             model = cucluster.DBSCAN(eps=kwargs['eps'],
                                      min_samples=kwargs['min_samples'])

@@ -21,6 +21,12 @@ default_params = dict(
 )
 
 
+def _num_clusters(labels):
+    """Number of clusters in a label vector, ignoring NaN noise."""
+    finite = labels[~np.isnan(labels)]
+    return int(finite.max()) + 1 if finite.size else 0
+
+
 class SingleNemi():
     """
     A single instance of the NEMI pipeline
@@ -302,17 +308,6 @@ class NEMI(SingleNemi):
             super().run(X, output=output)
             return
         else:
-            if assess_overlap:
-                method = self.params['clustering_dict'].get('method', 'agglomerative')
-                if method in ('dbscan', 'hdbscan'):
-                    raise ValueError(
-                        f"assess_overlap=True is not supported with '{method}' "
-                        "clustering: it produces variable cluster counts and -1 "
-                        "noise that the co-location vote cannot align. Use "
-                        "assess_overlap=False and combine the ensemble "
-                        "downstream (e.g. entropy)."
-                    )
-
             # initialize the pack
             nemi_pack = []
             # run the pack
@@ -357,12 +352,18 @@ class NEMI(SingleNemi):
         if to_plot == 'clusters':
             super().plot('clusters')
 
-    def assess_overlap(self, base_id:int =0, max_clusters=None, **kwargs):
+    def assess_overlap(self, base_id=None, max_clusters=None, **kwargs):
         """ Assess the overlap between the clusters.
 
         Args:
-            base_id (int, optional): index (starting at 0) of ensemble member to use as the base comparison
+            base_id (int, optional): ensemble member used as the base. Defaults
+                to the member with the most clusters, so its cluster count
+                covers every other member (required for variable-k methods like
+                HDBSCAN).
         """
+        if base_id is None:
+            base_id = int(np.argmax([_num_clusters(nemi.clusters)
+                                     for nemi in self.nemi_pack]))
 
         self.base_id = base_id
         self.embedding = self.nemi_pack[base_id].embedding
@@ -374,8 +375,8 @@ class NEMI(SingleNemi):
         # identify clusters from the base ensemble member
         base_labels = self.nemi_pack[base_id].clusters
 
-        # number of clusters
-        num_clusters = int(np.max(base_labels) + 1)
+        # number of clusters (NaN-safe: HDBSCAN/DBSCAN emit -1 noise -> NaN)
+        num_clusters = _num_clusters(base_labels)
 
         # if not pre-set, set max number of clusters to total number of clusters in the base
         if max_clusters is None:

@@ -63,3 +63,29 @@ def test_base_id_selects_reference_member():
     nemi.assess_overlap(base_id=1)
     assert nemi.base_id == 1
     assert nemi.embedding is nemi.nemi_pack[1].embedding
+
+
+def test_base_defaults_to_member_with_most_clusters():
+    # member 1 has 3 clusters, the others 2 -> base auto-selects member 1
+    nemi = _nemi([[0, 0, 1, 1, 1, 1],
+                  [0, 0, 1, 1, 2, 2],
+                  [0, 0, 1, 1, 1, 1]])
+    nemi.assess_overlap()
+    assert nemi.base_id == 1
+
+
+def test_explicit_base_id_overrides_auto():
+    nemi = _nemi([[0, 0, 1, 1, 1, 1],
+                  [0, 0, 1, 1, 2, 2],
+                  [0, 0, 1, 1, 1, 1]])
+    nemi.assess_overlap(base_id=0)
+    assert nemi.base_id == 0
+
+
+def test_handles_nan_noise_without_crashing():
+    # HDBSCAN-style: NaN marks noise points (index 4)
+    nemi = _nemi([[0, 0, 1, 1, np.nan],
+                  [0, 0, 1, 1, np.nan],
+                  [0, 0, 1, 1, np.nan]])
+    nemi.assess_overlap()
+    assert nemi.clusters.shape == (5,)

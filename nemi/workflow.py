@@ -293,11 +293,10 @@ class NEMI(SingleNemi):
                 embeddings and clusters) for downstream analysis — e.g.
                 geographic overlap/entropy in another repo. Ignored when
                 ``n == 1``. Defaults to True.
-            output (str, optional): if given, write the consensus embedding +
-                clusters to this ``.npz`` path (keys: ``embedding``,
-                ``clusters``).  Requires assess_overlap=True; with
-                assess_overlap=False there is no consensus and nothing is
-                written (use ``self.nemi_pack`` downstream).
+            output (str, optional): if given, write ensemble results to this
+                ``.npz`` path: per-member ``embeddings`` (n, N, d) and
+                ``member_clusters`` (n, N), plus consensus ``clusters`` (N,) and
+                ``embedding`` (N, d) when assess_overlap ran.
         """
         if n == 1:
             super().run(X, output=output)
@@ -320,11 +319,23 @@ class NEMI(SingleNemi):
             self.assess_overlap()
 
         if output is not None:
-            if assess_overlap:
-                self.save_outputs(output)      # consensus embedding + clusters
-            else:
-                print("output not saved: assess_overlap=False produced no "
-                      "consensus (use nemi_pack for downstream)")
+            self._save_ensemble(output)
+
+    def _save_ensemble(self, path):
+        """ Save ensemble outputs to a single .npz (for downstream entropy).
+
+        Always: per-member ``embeddings`` (n, N, d) and ``member_clusters``
+        (n, N).  Plus consensus ``clusters`` (N,) and ``embedding`` (N, d) when
+        the co-location vote has been computed (assess_overlap).
+        """
+        data = {
+            "embeddings": np.stack([m.embedding for m in self.nemi_pack]),
+            "member_clusters": np.stack([m.clusters for m in self.nemi_pack]),
+        }
+        if getattr(self, "clusters", None) is not None:
+            data["clusters"] = self.clusters
+            data["embedding"] = self.embedding
+        np.savez(path, **data)
 
     def plot(self, to_plot=None, plot_ensemble=False, **kwargs):
 

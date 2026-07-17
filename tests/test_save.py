@@ -44,19 +44,23 @@ def test_singlenemi_run_saves_outputs(tmp_path):
     assert d["clusters"].shape == (X.shape[0],)
 
 
-def test_ensemble_run_saves_consensus(tmp_path):
+def test_ensemble_run_saves_all_members(tmp_path):
     out = tmp_path / "ens.npz"
     X = _blobs()
-    NEMI(params=_cpu_params()).run(X, n=3, output=str(out))
+    NEMI(params=_cpu_params()).run(X, n=3, output=str(out))   # assess_overlap default True
 
     d = np.load(out)
-    assert set(d.files) == {"embedding", "clusters"}
-    assert d["clusters"].shape == (X.shape[0],)
+    assert d["embeddings"].shape == (3, X.shape[0], 3)
+    assert d["member_clusters"].shape == (3, X.shape[0])
+    assert d["clusters"].shape == (X.shape[0],)               # consensus present
 
 
-def test_ensemble_no_assess_writes_nothing(tmp_path, capsys):
-    out = tmp_path / "skip.npz"
-    NEMI(params=_cpu_params()).run(_blobs(), n=3, assess_overlap=False, output=str(out))
+def test_ensemble_no_assess_saves_members_without_consensus(tmp_path):
+    out = tmp_path / "noassess.npz"
+    X = _blobs()
+    NEMI(params=_cpu_params()).run(X, n=3, assess_overlap=False, output=str(out))
 
-    assert not out.exists()
-    assert "output not saved" in capsys.readouterr().out
+    d = np.load(out)
+    assert d["embeddings"].shape == (3, X.shape[0], 3)
+    assert d["member_clusters"].shape == (3, X.shape[0])
+    assert "clusters" not in d.files                          # no consensus saved

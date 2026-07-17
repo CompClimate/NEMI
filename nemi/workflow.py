@@ -249,7 +249,7 @@ class SingleNemi():
         if method == "agglomerative":
             model = cucluster.AgglomerativeClustering(
                 n_clusters=kwargs['n_clusters'], connectivity='knn',
-                linkage='single', n_neighbors=kwargs['n_neighbors'])
+                linkage='single', c=kwargs['c'])
         elif method == "dbscan":
             model = cucluster.DBSCAN(eps=kwargs['eps'],
                                      min_samples=kwargs['min_samples'])
@@ -302,6 +302,17 @@ class NEMI(SingleNemi):
             super().run(X, output=output)
             return
         else:
+            if assess_overlap:
+                method = self.params['clustering_dict'].get('method', 'agglomerative')
+                if method in ('dbscan', 'hdbscan'):
+                    raise ValueError(
+                        f"assess_overlap=True is not supported with '{method}' "
+                        "clustering: it produces variable cluster counts and -1 "
+                        "noise that the co-location vote cannot align. Use "
+                        "assess_overlap=False and combine the ensemble "
+                        "downstream (e.g. entropy)."
+                    )
+
             # initialize the pack
             nemi_pack = []
             # run the pack

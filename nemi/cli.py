@@ -44,7 +44,7 @@ class NemiConfig:
     clustering: str = "agglomerative"
     n_clusters: int = 30
     linkage: str = "ward"
-    cluster_n_neighbors: int = 40
+    c: int = 40
     eps: float = 0.5
     min_samples: int = 5
     min_cluster_size: int = 50
@@ -52,7 +52,7 @@ class NemiConfig:
     # Params that actually apply to each clustering method (drives the
     # irrelevant-argument warnings).
     _METHOD_PARAMS = {
-        "agglomerative": {"n_clusters", "linkage", "cluster_n_neighbors"},
+        "agglomerative": {"n_clusters", "linkage", "n_neighbors", "c"}, #todo ensure n_neighbors gets through for cpu version and note in docs
         "dbscan": {"eps", "min_samples"},
         "hdbscan": {"min_cluster_size", "min_samples"},
     }
@@ -92,7 +92,7 @@ class NemiConfig:
         clustering = {"method": self.clustering}
         if self.clustering == "agglomerative":
             clustering.update(linkage=self.linkage, n_clusters=self.n_clusters,
-                              n_neighbors=self.cluster_n_neighbors)
+                              c=self.c)
         elif self.clustering == "dbscan":
             clustering.update(eps=self.eps, min_samples=self.min_samples)
         elif self.clustering == "hdbscan":
@@ -146,7 +146,7 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--n-clusters", type=int, dest="n_clusters",
                    default=argparse.SUPPRESS)
     g.add_argument("--linkage", choices=LINKAGES, default=argparse.SUPPRESS)
-    g.add_argument("--cluster-n-neighbors", type=int, dest="cluster_n_neighbors",
+    g.add_argument("--cluster-n-neighbors", type=int, dest="c",
                    default=argparse.SUPPRESS)
     g.add_argument("--eps", type=float, default=argparse.SUPPRESS)
     g.add_argument("--min-samples", type=int, dest="min_samples",

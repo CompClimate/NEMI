@@ -226,12 +226,7 @@ class SingleNemi():
             model = AgglomerativeClustering(linkage=kwargs['linkage'],
                                             connectivity=knn_graph,
                                             n_clusters=kwargs['n_clusters'])
-            # TODO(possible bug): distances are computed on native ``self.X``
-            # while the connectivity graph is built from ``self.embedding``.
-            # The docstring says clustering is "on the embedding", which would
-            # be ``self.embedding`` here.  Left UNCHANGED pending confirmation
-            # from the NEMI authors, since this is the as-published behavior.
-            return model.fit_predict(self.X)
+            return model.fit_predict(self.embedding)
         elif method == "dbscan":
             model = DBSCAN(eps=kwargs['eps'], min_samples=kwargs['min_samples'])
         elif method == "hdbscan":
@@ -323,6 +318,7 @@ class NEMI(SingleNemi):
 
         if assess_overlap:
             self.assess_overlap()
+            self.entropy_map()
 
         if output is not None:
             self._save_ensemble(output)
@@ -341,6 +337,8 @@ class NEMI(SingleNemi):
         if getattr(self, "clusters", None) is not None:
             data["clusters"] = self.clusters
             data["embedding"] = self.embedding
+        if getattr(self, "entropy", None) is not None:
+            data["entropy"] = self.entropy
         np.savez(path, **data)
 
     def plot(self, to_plot=None, plot_ensemble=False, **kwargs):
@@ -375,10 +373,9 @@ class NEMI(SingleNemi):
         # identify clusters from the base ensemble member
         base_labels = self.nemi_pack[base_id].clusters
 
-        # number of clusters (NaN-safe: HDBSCAN/DBSCAN emit -1 noise -> NaN)
+        # (NaN-safe: HDBSCAN/DBSCAN emit -1 noise -> NaN)
         num_clusters = _num_clusters(base_labels)
 
-        # if not pre-set, set max number of clusters to total number of clusters in the base
         if max_clusters is None:
             max_clusters = num_clusters
 
@@ -462,3 +459,20 @@ class NEMI(SingleNemi):
 
         # save clusters estimated from the ensemble
         self.clusters = voteOverlaps
+        self.overlap_votes = aggOverlaps      # (K, N) aligned per-sample vote counts
+
+    def entropy_map(self):
+        """ Per-sample normalized Shannon entropy of the aligned ensemble
+        cluster-assignment distribution (from assess_overlap's overlap_votes).
+
+        0 = every member agrees on the sample's cluster; ->1 = members split it
+        evenly across clusters.  Requires assess_overlap to have run.
+        """
+        votes = self.overlap_votes.astype(float)          # (K, N)
+        totals = votes.sum(axis=0, keepdims=True)
+        p = np.zeros_like(votes)
+        np.divide(votes, totals, out=p, where=totals > 0)  # per-sample distribution
+        H = -(p * np.where(p > 0, np.log(p), 0.0)).sum(axis=0)   # (N,) nats
+        k = votes.shape[0]
+        self.entropy = H / np.log(k) if k > 1 else H
+        return self.entropy

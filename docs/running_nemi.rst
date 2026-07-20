@@ -56,3 +56,11 @@ Results are written to the ``--output`` ``.npz``:
   ``member_clusters`` ``(n, N)``. With ``--assess-overlap``, also consensus
   ``clusters`` ``(N,)``, base ``embedding`` ``(N, d)``, and per-sample
   ``entropy`` ``(N,)``.
+
+Testing
+======
+To test run the following command. (note this assumes you are in a gpu capable environment)
+
+.. code-block:: bash
+
+    python -m pytest tests/ -v -o addopts= -p no:cacheprovider

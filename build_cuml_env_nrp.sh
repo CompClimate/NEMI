@@ -43,6 +43,8 @@ echo ">> free space before build:"; df -h "$HOME" | tail -1
 
 # ---- 3. create the env -----------------------------------------------
 # Pins learned the hard way:
+#   cuml=25.06       -> GPU agglomerative uses `n_neighbors`, which cuML renamed
+#                       to `c` after 25.08; keep cuml<=25.08 (see docs/environment.md)
 #   numpy<2.5        -> numba (via cuml) ceiling
 #   scikit-learn=1.5 -> cuml 25.06 sklearn-compat shim
 #   umap-learn<0.5.7 -> 0.5.7+ needs sklearn 1.6 (installed in pip step below)

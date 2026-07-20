@@ -26,7 +26,11 @@ classifiers = [
 [project.optional-dependencies]
 full = ["pytest"]
 gpu = [
-    "cupy-cuda12x",       # cuML comes from RAPIDS (conda); cupy pip wheel listed for convenience
+    # cuML comes from RAPIDS (conda), not pip — see build_cuml_env_nrp.sh, which
+    # pins cuml=25.06.  Required range: cuml<=25.08.  __cluster_gpu passes the
+    # agglomerative `n_neighbors` arg, which cuML renamed to `c` after 25.08
+    # (n_neighbors = log(n_samples) + c).  See docs/environment.md.
+    "cupy-cuda12x",       # cupy pip wheel listed for convenience
     # RAPIDS/cuML 25.06 forces older satellite libs; cap these so both cuML and
     # the CPU umap path import in the GPU env (base install stays unpinned).
     "scikit-learn<1.6",   # cuML 25.06 needs 1.5.x; 1.6 renamed check_array's finite kwarg

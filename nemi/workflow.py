@@ -240,12 +240,6 @@ class SingleNemi():
         import cupy as cp
         from cuml import cluster as cucluster
 
-        # GPU clusters the EMBEDDING for every method.  NOTE: this differs from
-        # the CPU agglomerative path, which computes ward distances on native
-        # ``self.X`` under manifold connectivity (see TODO in __cluster_cpu).
-        # cuML agglomerative supports single linkage only and builds its own
-        # kNN connectivity, so here both linkage AND distances are on the
-        # embedding.
         X_gpu = cp.asarray(self.embedding)
         if method == "agglomerative":
             model = cucluster.AgglomerativeClustering(

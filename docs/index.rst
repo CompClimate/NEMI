@@ -41,4 +41,7 @@ Table of Contents
    about
    installation
    quickstart
+   running_nemi
+   gpu_and_cpu_pathway
+   environment
    modules

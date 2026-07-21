@@ -7,16 +7,24 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from collections import OrderedDict
 from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import AgglomerativeClustering
+from sklearn.cluster import AgglomerativeClustering, DBSCAN, HDBSCAN
 from sklearn.neighbors import kneighbors_graph
 # import sciris as sc
 
 __all__ = ['NEMI', 'SingleNemi']
 
 default_params = dict(
-    embedding_dict = dict(min_dist=0.0, n_components=3, n_neighbors=20),
-    clustering_dict = dict(linkage='ward',  n_clusters=30, n_neighbors=40)
+    device="cpu",
+    embedding_dict=dict(min_dist=0.0, n_components=3, n_neighbors=20),
+    clustering_dict=dict(method="agglomerative", linkage="ward",
+                         n_clusters=30, n_neighbors=40),
 )
+
+
+def _num_clusters(labels):
+    """Number of clusters in a label vector, ignoring NaN noise."""
+    finite = labels[~np.isnan(labels)]
+    return int(finite.max()) + 1 if finite.size else 0
 
 
 class SingleNemi():
@@ -42,17 +50,19 @@ class SingleNemi():
 
         return
     
-    def run(self, X, save_steps=True):
+    def run(self, X, output=None):
         """ Run a single instance of the NEMI pipeline
 
-        The pipeline consists of steps: 
-        
+        The pipeline consists of steps:
+
         - fitting the embedding
-        - predicting the clusters, 
+        - predicting the clusters,
         - sorting the clusters by descending size
 
         Args:
             X (:py:class:`~numpy.ndarray`): The data contained in a sparse matrix of shape (``n_samples``, ``n_features``)
+            output (str, optional): if given, write embedding + clusters to this
+                ``.npz`` path (keys: ``embedding``, ``clusters``).
         """
 
         # fit the embedding
@@ -66,6 +76,9 @@ class SingleNemi():
         # sort the clusters by (descending) size
         print('Sorting clusters')
         self.clusters = self.sort_clusters(self.clusters)
+
+        if output is not None:
+            self.save_outputs(output)
 
     def scale_data(self, X):
         """ Scale the data to have a mean and variance of 1.
@@ -90,20 +103,31 @@ class SingleNemi():
 
         # initialize data
         self.X = X
-        # run embedding
-        self.embedding = self.__embedding_algo(**self.params['embedding_dict'])(self.X)
+        # run embedding on the configured device (cpu: umap-learn, gpu: cuML)
+        embedding_fn = self.__embedding_algo(self.params['device'],
+                                             **self.params['embedding_dict'])
+        self.embedding = embedding_fn(self.X)
 
 
     def predict_clusters(self):
         """ Run the clustering algorithm on the embedding
 
-        Clustering algorithm parameters is set by the ``clustering_dict`` attribute.
+        Method and parameters are set by the ``clustering_dict`` attribute.
 
         Returns:
             Identified clusters
         """
+        device = self.params['device']
+        cluster_params = dict(self.params['clustering_dict'])
+        print(f"Clustering | device={device} | {cluster_params}")
 
-        return self.__clustering_algo(**self.params['clustering_dict'])(self.X)
+        if device == "gpu":
+            labels = self.__cluster_gpu(**cluster_params)
+        else:
+            labels = self.__cluster_cpu(**cluster_params)
+
+        print(f"Clusters found: {int(np.max(labels)) + 1}")
+        return labels
 
 
     def sort_clusters(self, clusters):
@@ -130,6 +154,10 @@ class SingleNemi():
 
         return new_labels
         
+    def save_outputs(self, path):
+        """ Save embedding + clusters to a single .npz (keys: embedding, clusters). """
+        np.savez(path, embedding=self.embedding, clusters=self.clusters)
+
     def save(self, filename):
         with open(filename, 'wb') as fid:
             pickle.dump(self, fid)
@@ -180,26 +208,53 @@ class SingleNemi():
             ax.scatter(*xy[::subsample].T, c=np.array(col).reshape((1,-1)), s=s, alpha=1, zorder=4)      
 
 
-    def __embedding_algo(self, **kwargs):
+    def __embedding_algo(self, device, **kwargs):
+        if device == "gpu":
+            from cuml.manifold import UMAP as cuUMAP
+            return cuUMAP(**kwargs).fit_transform
         return umap.UMAP(**kwargs).fit_transform
 
-    def __clustering_algo(self, **kwargs):
-        """ Clustering step
-
-        Args:
-            n_neighbors (int): Number of neighbors for each sample of the kneighbors_graph. Defaults to 40.
-                   
-        """
-        # Create a graph capturing local connectivity. Larger number of neighbors
-        # will give more homogeneous clusters to the cost of computation
-        # time. A very large number of neighbors gives more evenly distributed
-        # cluster sizes, but may not impose the local manifold structure of
-        # the data
-        knn_graph = kneighbors_graph(self.embedding, kwargs['n_neighbors'], include_self=False)
-        model = AgglomerativeClustering(linkage=kwargs['linkage'],
+    def __cluster_cpu(self, method="agglomerative", **kwargs):
+        if method == "agglomerative":
+            # Create a graph capturing local connectivity. Larger number of
+            # neighbors will give more homogeneous clusters to the cost of
+            # computation time. A very large number of neighbors gives more
+            # evenly distributed cluster sizes, but may not impose the local
+            # manifold structure of the data
+            knn_graph = kneighbors_graph(self.embedding, kwargs['n_neighbors'],
+                                         include_self=False)
+            model = AgglomerativeClustering(linkage=kwargs['linkage'],
                                             connectivity=knn_graph,
                                             n_clusters=kwargs['n_clusters'])
-        return model.fit_predict                          
+            return model.fit_predict(self.embedding)
+        elif method == "dbscan":
+            model = DBSCAN(eps=kwargs['eps'], min_samples=kwargs['min_samples'])
+        elif method == "hdbscan":
+            model = HDBSCAN(min_cluster_size=kwargs['min_cluster_size'],
+                            min_samples=kwargs['min_samples'])
+        else:
+            raise ValueError(f"unknown clustering method '{method}'")
+        return model.fit_predict(self.embedding)
+
+    def __cluster_gpu(self, method="agglomerative", **kwargs):
+        import cupy as cp
+        from cuml import cluster as cucluster
+
+        X_gpu = cp.asarray(self.embedding)
+        if method == "agglomerative":
+            model = cucluster.AgglomerativeClustering(
+                n_clusters=kwargs['n_clusters'], connectivity='knn',
+                linkage='single', n_neighbors=kwargs['n_neighbors'])
+        elif method == "dbscan":
+            model = cucluster.DBSCAN(eps=kwargs['eps'],
+                                     min_samples=kwargs['min_samples'])
+        elif method == "hdbscan":
+            model = cucluster.HDBSCAN(min_cluster_size=kwargs['min_cluster_size'],
+                                      min_samples=kwargs['min_samples'])
+        else:
+            raise ValueError(f"unknown clustering method '{method}'")
+        model.fit(X_gpu)
+        return cp.asnumpy(model.labels_)
 
 
 class NEMI(SingleNemi):
@@ -215,21 +270,31 @@ class NEMI(SingleNemi):
         self.params.update(params if params is not None else {})
         self.base_id = None
 
-    def run(self, X, n=1):
+    def run(self, X, n=1, assess_overlap=True, output=None):
         """ Run the NEMI pipeline
 
-        The pipeline consists of steps: 
-        
+        The pipeline consists of steps:
+
         - fitting the embedding
-        - predicting the clusters, 
+        - predicting the clusters,
         - sorting the clusters by descending size
 
         Args:
             X (:py:class:`~numpy.ndarray`): The data contained in a sparse matrix of shape (``n_samples``, ``n_features``)
             n (int, optional): Number of iterations to run. Defaults to 1.
+            assess_overlap (bool, optional): after building the ensemble, run the
+                cross-member co-location + majority vote to set ``self.clusters``.
+                Set False to keep the raw ``self.nemi_pack`` (per-member
+                embeddings and clusters) for downstream analysis — e.g.
+                geographic overlap/entropy in another repo. Ignored when
+                ``n == 1``. Defaults to True.
+            output (str, optional): if given, write ensemble results to this
+                ``.npz`` path: per-member ``embeddings`` (n, N, d) and
+                ``member_clusters`` (n, N), plus consensus ``clusters`` (N,) and
+                ``embedding`` (N, d) when assess_overlap ran.
         """
         if n == 1:
-            super().run(X)
+            super().run(X, output=output)
             return
         else:
             # initialize the pack
@@ -239,13 +304,36 @@ class NEMI(SingleNemi):
                 # create nemi instance
                 nemi = SingleNemi(params=self.params)
                 # run single instance
-                nemi.run(X)        
+                nemi.run(X)
                 # add to the pack
                 nemi_pack.append(nemi)
 
             self.nemi_pack = nemi_pack
 
-        self.assess_overlap()
+        if assess_overlap:
+            self.assess_overlap()
+            self.entropy_map()
+
+        if output is not None:
+            self._save_ensemble(output)
+
+    def _save_ensemble(self, path):
+        """ Save ensemble outputs to a single .npz (for downstream entropy).
+
+        Always: per-member ``embeddings`` (n, N, d) and ``member_clusters``
+        (n, N).  Plus consensus ``clusters`` (N,) and ``embedding`` (N, d) when
+        the co-location vote has been computed (assess_overlap).
+        """
+        data = {
+            "embeddings": np.stack([m.embedding for m in self.nemi_pack]),
+            "member_clusters": np.stack([m.clusters for m in self.nemi_pack]),
+        }
+        if getattr(self, "clusters", None) is not None:
+            data["clusters"] = self.clusters
+            data["embedding"] = self.embedding
+        if getattr(self, "entropy", None) is not None:
+            data["entropy"] = self.entropy
+        np.savez(path, **data)
 
     def plot(self, to_plot=None, plot_ensemble=False, **kwargs):
 
@@ -256,12 +344,18 @@ class NEMI(SingleNemi):
         if to_plot == 'clusters':
             super().plot('clusters')
 
-    def assess_overlap(self, base_id:int =0, max_clusters=None, **kwargs):
+    def assess_overlap(self, base_id=None, max_clusters=None, **kwargs):
         """ Assess the overlap between the clusters.
 
         Args:
-            base_id (int, optional): index (starting at 0) of ensemble member to use as the base comparison
+            base_id (int, optional): ensemble member used as the base. Defaults
+                to the member with the most clusters, so its cluster count
+                covers every other member (required for variable-k methods like
+                HDBSCAN).
         """
+        if base_id is None:
+            base_id = int(np.argmax([_num_clusters(nemi.clusters)
+                                     for nemi in self.nemi_pack]))
 
         self.base_id = base_id
         self.embedding = self.nemi_pack[base_id].embedding
@@ -273,10 +367,9 @@ class NEMI(SingleNemi):
         # identify clusters from the base ensemble member
         base_labels = self.nemi_pack[base_id].clusters
 
-        # number of clusters
-        num_clusters = int(np.max(base_labels) + 1)
+        # (NaN-safe: HDBSCAN/DBSCAN emit -1 noise -> NaN)
+        num_clusters = _num_clusters(base_labels)
 
-        # if not pre-set, set max number of clusters to total number of clusters in the base
         if max_clusters is None:
             max_clusters = num_clusters
 
@@ -360,3 +453,20 @@ class NEMI(SingleNemi):
 
         # save clusters estimated from the ensemble
         self.clusters = voteOverlaps
+        self.overlap_votes = aggOverlaps      # (K, N) aligned per-sample vote counts
+
+    def entropy_map(self):
+        """ Per-sample normalized Shannon entropy of the aligned ensemble
+        cluster-assignment distribution (from assess_overlap's overlap_votes).
+
+        0 = every member agrees on the sample's cluster; ->1 = members split it
+        evenly across clusters.  Requires assess_overlap to have run.
+        """
+        votes = self.overlap_votes.astype(float)          # (K, N)
+        totals = votes.sum(axis=0, keepdims=True)
+        p = np.zeros_like(votes)
+        np.divide(votes, totals, out=p, where=totals > 0)  # per-sample distribution
+        H = -(p * np.where(p > 0, np.log(p), 0.0)).sum(axis=0)   # (N,) nats
+        k = votes.shape[0]
+        self.entropy = H / np.log(k) if k > 1 else H
+        return self.entropy

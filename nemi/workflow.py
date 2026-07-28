@@ -333,6 +333,8 @@ class NEMI(SingleNemi):
             data["embedding"] = self.embedding
         if getattr(self, "entropy", None) is not None:
             data["entropy"] = self.entropy
+        if getattr(self, "unassigned_frac", None) is not None:
+            data["unassigned_frac"] = self.unassigned_frac
         np.savez(path, **data)
 
     def plot(self, to_plot=None, plot_ensemble=False, **kwargs):
@@ -447,26 +449,40 @@ class NEMI(SingleNemi):
         for c1 in range(max_clusters):  
             sortedOverlap[base_id, c1, :] = 1 * (base_labels == c1)
 
-        # majority vote
-        aggOverlaps = np.nansum(sortedOverlap,axis=0)
-        voteOverlaps = np.argmax(aggOverlaps,axis=0)
+        # majority vote, with an "unassigned" bin competing so samples the
+        # ensemble mostly left as noise get -1 rather than a spurious cluster 0
+        aggOverlaps = np.nansum(sortedOverlap, axis=0)          # (K, N)
+        n_members = len(self.nemi_pack)
+        unassigned = n_members - aggOverlaps.sum(axis=0)        # (N,) members that abstained (noise)
+        augmented = np.vstack([aggOverlaps, unassigned])        # (K+1, N)
+        voteOverlaps = np.argmax(augmented, axis=0)
+        voteOverlaps[voteOverlaps == aggOverlaps.shape[0]] = -1  # noise bin won -> -1
 
         # save clusters estimated from the ensemble
         self.clusters = voteOverlaps
         self.overlap_votes = aggOverlaps      # (K, N) aligned per-sample vote counts
+        self.n_members = n_members
+        self.unassigned_frac = unassigned / n_members           # (N,) graded noise support
 
     def entropy_map(self):
         """ Per-sample normalized Shannon entropy of the aligned ensemble
         cluster-assignment distribution (from assess_overlap's overlap_votes).
 
-        0 = every member agrees on the sample's cluster; ->1 = members split it
-        evenly across clusters.  Requires assess_overlap to have run.
+        Members that gave a sample no matched vote (noise labels) are pooled into
+        an extra "unassigned" bin that still contributes to the entropy, so
+        low-support samples are not treated as confident; the per-sample
+        distribution always totals n_members.  Normalized by log(min(K, n_members)),
+        the most a sample's votes can spread across real clusters.
+
+        0 = every member agrees (on one cluster, or all agree it is noise);
+        higher = members disagree and/or many labeled it noise.  Requires
+        assess_overlap to have run.
         """
-        votes = self.overlap_votes.astype(float)          # (K, N)
-        totals = votes.sum(axis=0, keepdims=True)
-        p = np.zeros_like(votes)
-        np.divide(votes, totals, out=p, where=totals > 0)  # per-sample distribution
-        H = -(p * np.where(p > 0, np.log(p), 0.0)).sum(axis=0)   # (N,) nats
-        k = votes.shape[0]
+        n = self.n_members
+        votes = self.overlap_votes.astype(float)               # (K, N)
+        unassigned = n - votes.sum(axis=0, keepdims=True)       # (1, N) members with no matched vote
+        p = np.vstack([votes, unassigned]) / n                 # (K+1, N) distribution, totals 1
+        H = -(p * np.where(p > 0, np.log(p), 0.0)).sum(axis=0) # (N,) nats
+        k = min(votes.shape[0], n)                             # max spread: K real clusters, capped by members
         self.entropy = H / np.log(k) if k > 1 else H
         return self.entropy

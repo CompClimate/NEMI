@@ -15,29 +15,41 @@ def _nemi(overlap_votes):
 
 
 def test_entropy_zero_when_members_agree():
-    H = _nemi([[4.], [0.]]).entropy_map()      # all votes -> cluster 0
+    nemi = _nemi([[4.], [0.]]); nemi.n_members = 4   # all 4 members -> cluster 0
+    H = nemi.entropy_map()
     assert H.shape == (1,)
     assert np.allclose(H, 0.0)
 
 
 def test_entropy_one_when_evenly_split():
-    H = _nemi([[2.], [2.]]).entropy_map()      # even 2-way split -> max entropy
+    nemi = _nemi([[2.], [2.]]); nemi.n_members = 4   # even 2-way split, no noise -> max
+    H = nemi.entropy_map()
     assert np.allclose(H, 1.0)
 
 
 def test_entropy_between_for_partial_agreement():
-    H = _nemi([[3.], [1.]]).entropy_map()
+    nemi = _nemi([[3.], [1.]]); nemi.n_members = 4   # uneven split, no noise
+    H = nemi.entropy_map()
     assert 0.0 < H[0] < 1.0
 
 
-def test_entropy_zero_for_no_votes():
-    H = _nemi([[0.], [0.]]).entropy_map()      # noise-everywhere sample
+def test_entropy_noise_raises_uncertainty():
+    # identical cluster votes; the noisy case has an extra member that abstained
+    clustered = _nemi([[2.], [1.], [0.]]); clustered.n_members = 3
+    noisy = _nemi([[2.], [1.], [0.]]); noisy.n_members = 4   # 1 unassigned vote
+    assert noisy.entropy_map()[0] > clustered.entropy_map()[0]
+
+
+def test_entropy_zero_for_all_noise():
+    nemi = _nemi([[0.], [0.]]); nemi.n_members = 4   # every member called it noise
+    H = nemi.entropy_map()                            # -> confidently unassigned
     assert np.allclose(H, 0.0)
 
 
 def test_entropy_shape_and_attribute():
     nemi = _nemi([[4, 2, 3, 0],
                   [0, 2, 1, 0]])
+    nemi.n_members = 4
     H = nemi.entropy_map()
     assert H.shape == (4,)
     assert nemi.entropy is H

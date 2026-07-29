@@ -7,7 +7,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from collections import OrderedDict
 from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import AgglomerativeClustering, DBSCAN, HDBSCAN
+from sklearn.cluster import AgglomerativeClustering, DBSCAN, HDBSCAN, KMeans
 from sklearn.neighbors import kneighbors_graph
 # import sciris as sc
 
@@ -232,6 +232,10 @@ class SingleNemi():
         elif method == "hdbscan":
             model = HDBSCAN(min_cluster_size=kwargs['min_cluster_size'],
                             min_samples=kwargs['min_samples'])
+        elif method == "kmeans":
+            model = KMeans(n_clusters=kwargs['n_clusters'],
+                           n_init=kwargs.get('n_init', 10),
+                           random_state=kwargs.get('random_state', None))
         else:
             raise ValueError(f"unknown clustering method '{method}'")
         return model.fit_predict(self.embedding)
@@ -251,6 +255,10 @@ class SingleNemi():
         elif method == "hdbscan":
             model = cucluster.HDBSCAN(min_cluster_size=kwargs['min_cluster_size'],
                                       min_samples=kwargs['min_samples'])
+        elif method == "kmeans":
+            model = cucluster.KMeans(n_clusters=kwargs['n_clusters'],
+                                     n_init=kwargs.get('n_init', 10),
+                                     random_state=kwargs.get('random_state', 0))
         else:
             raise ValueError(f"unknown clustering method '{method}'")
         model.fit(X_gpu)

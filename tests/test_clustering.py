@@ -50,6 +50,17 @@ def test_cpu_hdbscan_runs():
     assert labels.dtype.kind in "iu"
 
 
+def test_cpu_kmeans_gives_k_clusters():
+    labels = _run_cpu("kmeans", n_clusters=3)
+    assert labels.shape == (N,)
+    assert len(np.unique(labels)) == 3          # fixed n_clusters
+
+
+def test_cpu_kmeans_respects_optional_params():
+    labels = _run_cpu("kmeans", n_clusters=4, n_init=5, random_state=0)
+    assert len(np.unique(labels)) == 4
+
+
 def test_unknown_method_raises():
     nm = SingleNemi(params={"device": "cpu", "clustering_dict": {"method": "bogus"}})
     nm.X = nm.embedding = _embedding()

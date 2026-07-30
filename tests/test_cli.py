@@ -37,6 +37,12 @@ def test_to_params_hdbscan_only_has_its_keys():
         "method": "hdbscan", "min_cluster_size": 25, "min_samples": 5}
 
 
+def test_to_params_kmeans_only_has_its_keys():
+    params = NemiConfig(input="x", output="o", clustering="kmeans",
+                        n_clusters=8).to_params()
+    assert params["clustering_dict"] == {"method": "kmeans", "n_clusters": 8}
+
+
 # --- validate --------------------------------------------------------------
 
 def test_gpu_agglomerative_ward_is_hard_error():

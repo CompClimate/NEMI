@@ -38,13 +38,15 @@ Backend & ensemble:
 
 Embedding (UMAP): ``--n-components``, ``--embed-n-neighbors``, ``--min-dist``.
 
-Clustering: ``--clustering`` — ``agglomerative`` (default), ``dbscan``, or
-``hdbscan``. Each method reads only its own params; setting others warns:
+Clustering: ``--clustering`` — ``agglomerative`` (default), ``dbscan``,
+``hdbscan``, or ``kmeans``. Each method reads only its own params; setting
+others warns:
 
 * agglomerative — ``--n-clusters``, ``--linkage`` (``ward``/``single``),
   ``--cluster-n-neighbors``
 * dbscan — ``--eps``, ``--min-samples``
 * hdbscan — ``--min-cluster-size``, ``--min-samples``
+* kmeans — ``--n-clusters``
 
 Output
 ======

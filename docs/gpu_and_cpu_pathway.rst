@@ -35,8 +35,8 @@ Key behavioural difference
   linkage and distances are on the embedding.
 
 Because of this, ``--device gpu --clustering agglomerative --linkage ward`` is a
-**hard error** — use ``--linkage single`` or ``--device cpu``. ``dbscan`` and
-``hdbscan`` map directly to their cuML equivalents.
+**hard error** — use ``--linkage single`` or ``--device cpu``. ``dbscan``,
+``hdbscan`` and ``kmeans`` map directly to their cuML equivalents.
 
 Requirements
 ============

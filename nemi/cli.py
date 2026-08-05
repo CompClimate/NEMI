@@ -21,7 +21,7 @@ import yaml
 from nemi.workflow import NEMI
 
 DEVICES = ("cpu", "gpu")
-CLUSTERINGS = ("agglomerative", "dbscan", "hdbscan")
+CLUSTERINGS = ("agglomerative", "dbscan", "hdbscan", "kmeans")
 LINKAGES = ("ward", "single")
 
 
@@ -55,6 +55,7 @@ class NemiConfig:
         "agglomerative": {"n_clusters", "linkage", "cluster_n_neighbors"},
         "dbscan": {"eps", "min_samples"},
         "hdbscan": {"min_cluster_size", "min_samples"},
+        "kmeans": {"n_clusters"},
     }
 
     def validate(self, provided: set[str] | None = None) -> None:
@@ -98,6 +99,8 @@ class NemiConfig:
         elif self.clustering == "hdbscan":
             clustering.update(min_cluster_size=self.min_cluster_size,
                               min_samples=self.min_samples)
+        elif self.clustering == "kmeans":
+            clustering.update(n_clusters=self.n_clusters)
         return dict(
             device=self.device,
             embedding_dict=dict(min_dist=self.min_dist,

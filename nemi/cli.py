@@ -18,7 +18,7 @@ from dataclasses import dataclass
 import numpy as np
 import yaml
 
-from nemi.workflow import NEMI
+from nemi.workflow import MODES, NEMI
 
 DEVICES = ("cpu", "gpu")
 CLUSTERINGS = ("agglomerative", "dbscan", "hdbscan", "kmeans")
@@ -30,7 +30,9 @@ class NemiConfig:
     # I/O
     input: str | None = None
     output: str | None = None
+    embeddings: str | None = None
     # backend & ensemble
+    mode: str = "full"
     device: str = "cpu"
     n_members: int = 1
     seed: int | None = None
@@ -59,9 +61,11 @@ class NemiConfig:
     }
 
     def validate(self, provided: set[str] | None = None) -> None:
-        if self.input is None:
+        if self.mode not in MODES:
+            raise ValueError(f"mode must be one of {MODES}, got '{self.mode}'")
+        if self.input is None and self.mode != "cluster":
             raise ValueError("no input given (positional 'input' or config 'input')")
-        if self.output is None:
+        if self.output is None and self.mode != "embed":
             raise ValueError("no output given (--output or config 'output')")
         if self.device not in DEVICES:
             raise ValueError(f"device must be one of {DEVICES}, got '{self.device}'")
@@ -119,6 +123,13 @@ def build_parser() -> argparse.ArgumentParser:
                    help="input data .npy of shape (n_samples, n_features)")
     p.add_argument("-o", "--output", default=argparse.SUPPRESS,
                    help="path to write cluster labels (.npy)")
+    p.add_argument("-e", "--embeddings", default=argparse.SUPPRESS,
+                   help="ensemble embeddings .npz, written by --mode full/embed and "
+                        "read by --mode cluster (default: nemi_embeddings.npz, "
+                        "overwritten each run)")
+    p.add_argument("--mode", choices=MODES, default=argparse.SUPPRESS,
+                   help="full: embed then cluster; embed: stop after embedding; "
+                        "cluster: cluster a saved embeddings file")
     p.add_argument("--config", default=None,
                    help="YAML config; explicit CLI args override its values")
 
@@ -193,16 +204,18 @@ def main(argv=None):
     if cfg.device == "gpu":
         _require_gpu()
 
-    X = np.load(cfg.input)
+    X = None if cfg.mode == "cluster" else np.load(cfg.input)
     nemi = NEMI(params=cfg.to_params())
 
-    print(f"Running NEMI | device={cfg.device} clustering={cfg.clustering} "
+    print(f"Running NEMI | mode={cfg.mode} device={cfg.device} "
+          f"clustering={cfg.clustering} "
           f"n_members={cfg.n_members} assess_overlap={cfg.assess_overlap} "
-          f"X={X.shape} -> {cfg.output}")
+          f"X={X.shape if X is not None else cfg.embeddings} -> {cfg.output}")
     # TODO: cfg.scale is captured but not wired — run() does not apply
     # StandardScaler yet (see SingleNemi.scale_data).
     # TODO: cfg.seed is captured but not wired — no reproducible-ensemble seeding.
-    nemi.run(X, n=cfg.n_members, assess_overlap=cfg.assess_overlap, output=cfg.output)
+    nemi.run(X, n=cfg.n_members, assess_overlap=cfg.assess_overlap,
+             output=cfg.output, mode=cfg.mode, embeddings=cfg.embeddings)
     return nemi
 
 

@@ -1,4 +1,6 @@
 
+import os
+import json
 import umap
 import pickle
 import copy
@@ -11,7 +13,10 @@ from sklearn.cluster import AgglomerativeClustering, DBSCAN, HDBSCAN, KMeans
 from sklearn.neighbors import kneighbors_graph
 # import sciris as sc
 
-__all__ = ['NEMI', 'SingleNemi']
+__all__ = ['NEMI', 'SingleNemi', 'MODES', 'DEFAULT_EMBEDDINGS_PATH']
+
+MODES = ('full', 'embed', 'cluster')
+DEFAULT_EMBEDDINGS_PATH = 'nemi_embeddings.npz'
 
 default_params = dict(
     device="cpu",
@@ -162,9 +167,6 @@ class SingleNemi():
         with open(filename, 'wb') as fid:
             pickle.dump(self, fid)
 
-    def load_embedding(self, filename):
-        self.embedding = np.load(filename)
-
     def save_embedding(self, filename):
         """ Save the embedding to a file
 
@@ -278,7 +280,8 @@ class NEMI(SingleNemi):
         self.params.update(params if params is not None else {})
         self.base_id = None
 
-    def run(self, X, n=1, assess_overlap=True, output=None):
+    def run(self, X=None, n=1, assess_overlap=True, output=None, mode='full',
+            embeddings=None):
         """ Run the NEMI pipeline
 
         The pipeline consists of steps:
@@ -288,7 +291,9 @@ class NEMI(SingleNemi):
         - sorting the clusters by descending size
 
         Args:
-            X (:py:class:`~numpy.ndarray`): The data contained in a sparse matrix of shape (``n_samples``, ``n_features``)
+            X (:py:class:`~numpy.ndarray`, optional): The data contained in a sparse
+                matrix of shape (``n_samples``, ``n_features``). Required unless
+                ``mode='cluster'``.
             n (int, optional): Number of iterations to run. Defaults to 1.
             assess_overlap (bool, optional): after building the ensemble, run the
                 cross-member co-location + majority vote to set ``self.clusters``.
@@ -300,23 +305,38 @@ class NEMI(SingleNemi):
                 ``.npz`` path: per-member ``embeddings`` (n, N, d) and
                 ``member_clusters`` (n, N), plus consensus ``clusters`` (N,) and
                 ``embedding`` (N, d) when assess_overlap ran.
+            mode (str, optional): ``'full'`` embeds then clusters; ``'embed'``
+                stops once the embeddings are written; ``'cluster'`` skips the
+                embedding and clusters a saved embeddings file. Defaults to
+                ``'full'``.
+            embeddings (str, optional): path of the ensemble embeddings ``.npz``,
+                written by ``'full'``/``'embed'`` and read by ``'cluster'``.
+                Defaults to ``DEFAULT_EMBEDDINGS_PATH`` in the working directory,
+                which is overwritten on every run.
         """
-        if n == 1:
-            super().run(X, output=output)
-            return
-        else:
-            # initialize the pack
-            nemi_pack = []
-            # run the pack
-            for member in tqdm(np.arange(n)):
-                # create nemi instance
-                nemi = SingleNemi(params=self.params)
-                # run single instance
-                nemi.run(X)
-                # add to the pack
-                nemi_pack.append(nemi)
+        if mode not in MODES:
+            raise ValueError(f"mode must be one of {MODES}, got '{mode}'")
+        if embeddings is None:
+            embeddings = DEFAULT_EMBEDDINGS_PATH
 
-            self.nemi_pack = nemi_pack
+        if mode == 'cluster':
+            self._load_pack(embeddings)
+        else:
+            if X is None:
+                raise ValueError(f"mode='{mode}' requires X")
+            self._fit_pack(X, n)
+            self._save_embeddings(embeddings)
+            if mode == 'embed':
+                return
+
+        self._cluster_pack()
+
+        if len(self.nemi_pack) == 1:
+            self.embedding = self.nemi_pack[0].embedding
+            self.clusters = self.nemi_pack[0].clusters
+            if output is not None:
+                self.save_outputs(output)
+            return
 
         if assess_overlap:
             self.assess_overlap()
@@ -324,6 +344,43 @@ class NEMI(SingleNemi):
 
         if output is not None:
             self._save_ensemble(output)
+
+    def _fit_pack(self, X, n):
+        """ Fit the embedding for each of the ``n`` ensemble members. """
+        self.nemi_pack = []
+        for member in tqdm(np.arange(n)):
+            nemi = SingleNemi(params=self.params)
+            nemi.fit_embedding(X)
+            self.nemi_pack.append(nemi)
+
+    def _cluster_pack(self):
+        """ Cluster and size-sort every ensemble member's embedding. """
+        for nemi in tqdm(self.nemi_pack):
+            nemi.clusters = nemi.sort_clusters(nemi.predict_clusters())
+
+    def _save_embeddings(self, path):
+        """ Write the ensemble embeddings (n, N, d) and the params that made them. """
+        np.savez(path,
+                 embeddings=np.stack([m.embedding for m in self.nemi_pack]),
+                 params=json.dumps(self.params))
+
+    def _load_pack(self, path):
+        """ Rebuild the ensemble member-by-member from a saved embeddings ``.npz``. """
+        if not os.path.exists(path):
+            raise FileNotFoundError(
+                f"no saved embeddings at '{path}' — run mode='embed' first, or "
+                f"pass the path of an existing embeddings file")
+        saved = np.load(path)
+        self.nemi_pack = []
+        for embedding in saved['embeddings']:
+            nemi = SingleNemi(params=self.params)
+            nemi.embedding = embedding
+            self.nemi_pack.append(nemi)
+
+        embed_params = json.loads(saved['params'].item())
+        print(f"Loaded {len(self.nemi_pack)} embedding(s) from {path}")
+        print(f"Embedding | device={embed_params['device']} | "
+              f"{embed_params['embedding_dict']}")
 
     def _save_ensemble(self, path):
         """ Save ensemble outputs to a single .npz (for downstream entropy).

@@ -15,6 +15,8 @@ CLI usage
 
     nemi INPUT.npy -o OUTPUT.npz [options]
     nemi INPUT.npy -o OUTPUT.npz --config run.yaml   # YAML config
+    nemi INPUT.npy --mode embed -e EMB.npz           # embed only
+    nemi --mode cluster -e EMB.npz -o OUTPUT.npz     # cluster saved embeddings
 
 A YAML config can supply any option; explicit CLI args override it. Precedence
 (low → high): dataclass defaults < ``--config`` file < CLI args.
@@ -23,7 +25,26 @@ Input options
 =============
 
 * ``input`` (positional) — ``.npy`` array of shape ``(n_samples, n_features)``.
+  Not required with ``--mode cluster``.
 * ``-o/--output`` — path to write results (``.npz``).
+  Not required with ``--mode embed``.
+* ``-e/--embeddings`` — ensemble embeddings ``.npz``. Written by ``--mode
+  full``/``embed``, read by ``--mode cluster``. Defaults to
+  ``nemi_embeddings.npz`` in the working directory, overwritten on every run.
+
+Modes
+=====
+
+``--mode`` selects how much of the pipeline runs, so an expensive UMAP fit can
+be reused across clustering experiments:
+
+* ``full`` (default) — embed, then cluster. Writes both files.
+* ``embed`` — stop once the embeddings are written. No ``--output``.
+* ``cluster`` — skip the embedding and cluster the saved ensemble. No ``input``.
+
+The embeddings file holds ``embeddings`` ``(n, N, d)`` — one entry per ensemble
+member, including when ``n == 1`` — plus ``params``, a JSON record of the
+device and embedding settings that produced it.
 
 Backend & ensemble:
 

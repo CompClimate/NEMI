@@ -71,6 +71,19 @@ def test_missing_output_raises():
         NemiConfig(input="x").validate()
 
 
+def test_cluster_mode_needs_no_input():
+    NemiConfig(output="o", mode="cluster").validate()
+
+
+def test_embed_mode_needs_no_output():
+    NemiConfig(input="x", mode="embed").validate()
+
+
+def test_bad_mode_raises():
+    with pytest.raises(ValueError, match="mode must be one of"):
+        NemiConfig(input="x", output="o", mode="bogus").validate()
+
+
 def test_bad_n_members_raises():
     with pytest.raises(ValueError, match="n_members"):
         NemiConfig(input="x", output="o", n_members=0).validate()
@@ -129,6 +142,12 @@ def test_no_assess_overlap_flag():
     assert cfg.assess_overlap is False
 
 
+def test_mode_and_embeddings_parse():
+    cfg, _ = _cfg(["-o", "o.npz", "--mode", "cluster", "--embeddings", "e.npz"])
+    assert cfg.mode == "cluster" and cfg.embeddings == "e.npz"
+    assert cfg.input is None
+
+
 def test_unknown_config_key_raises(tmp_path):
     cfgfile = tmp_path / "c.yaml"
     cfgfile.write_text(yaml.safe_dump({"input": "d", "output": "o", "bogus": 1}))
@@ -138,13 +157,28 @@ def test_unknown_config_key_raises(tmp_path):
 
 # --- main(): up to NEMI instantiation -------------------------------------
 
-def test_main_cpu_runs_and_saves(tmp_path):
+def test_main_cpu_runs_and_saves(tmp_path, embeddings_path):
     data = tmp_path / "d.npy"
     np.save(data, make_blobs(n_samples=60, n_features=4, centers=3, random_state=0)[0])
     out = tmp_path / "o.npz"
     nemi = cli.main([str(data), "-o", str(out),
                      "--embed-n-neighbors", "10", "--n-clusters", "3",
-                     "--cluster-n-neighbors", "10"])
+                     "--cluster-n-neighbors", "10", "-e", embeddings_path])
+    assert nemi.clusters.shape == (60,)
+    assert out.exists()
+
+
+def test_main_embed_then_cluster(tmp_path):
+    data = tmp_path / "d.npy"
+    np.save(data, make_blobs(n_samples=60, n_features=4, centers=3, random_state=0)[0])
+    emb, out = tmp_path / "e.npz", tmp_path / "o.npz"
+    common = ["--embed-n-neighbors", "10", "--n-clusters", "3",
+              "--cluster-n-neighbors", "10", "--embeddings", str(emb)]
+
+    cli.main([str(data), "--mode", "embed"] + common)
+    assert emb.exists()
+
+    nemi = cli.main(["--mode", "cluster", "-o", str(out)] + common)
     assert nemi.clusters.shape == (60,)
     assert out.exists()
 

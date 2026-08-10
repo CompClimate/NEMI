@@ -44,10 +44,11 @@ def test_singlenemi_run_saves_outputs(tmp_path):
     assert d["clusters"].shape == (X.shape[0],)
 
 
-def test_ensemble_run_saves_all_members(tmp_path):
+def test_ensemble_run_saves_all_members(tmp_path, embeddings_path):
     out = tmp_path / "ens.npz"
     X = _blobs()
-    NEMI(params=_cpu_params()).run(X, n=3, output=str(out))   # assess_overlap default True
+    NEMI(params=_cpu_params()).run(X, n=3, output=str(out),   # assess_overlap default True
+                                   embeddings=embeddings_path)
 
     d = np.load(out)
     assert d["embeddings"].shape == (3, X.shape[0], 3)
@@ -55,10 +56,11 @@ def test_ensemble_run_saves_all_members(tmp_path):
     assert d["clusters"].shape == (X.shape[0],)               # consensus present
 
 
-def test_ensemble_no_assess_saves_members_without_consensus(tmp_path):
+def test_ensemble_no_assess_saves_members_without_consensus(tmp_path, embeddings_path):
     out = tmp_path / "noassess.npz"
     X = _blobs()
-    NEMI(params=_cpu_params()).run(X, n=3, assess_overlap=False, output=str(out))
+    NEMI(params=_cpu_params()).run(X, n=3, assess_overlap=False, output=str(out),
+                                   embeddings=embeddings_path)
 
     d = np.load(out)
     assert d["embeddings"].shape == (3, X.shape[0], 3)

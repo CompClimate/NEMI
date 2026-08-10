@@ -29,22 +29,22 @@ def _params(device):
     }
 
 
-def test_cpu_ensemble_produces_consensus():
+def test_cpu_ensemble_produces_consensus(embeddings_path):
     nemi = NEMI(params=_params("cpu"))
-    nemi.run(_blobs(), n=3)
+    nemi.run(_blobs(), n=3, embeddings=embeddings_path)
     assert nemi.base_id == 0
     assert nemi.clusters.shape == (N,)
 
 
-def test_assess_overlap_false_keeps_pack_only():
+def test_assess_overlap_false_keeps_pack_only(embeddings_path):
     nemi = NEMI(params=_params("cpu"))
-    nemi.run(_blobs(), n=3, assess_overlap=False)
+    nemi.run(_blobs(), n=3, assess_overlap=False, embeddings=embeddings_path)
     assert len(nemi.nemi_pack) == 3
     assert not hasattr(nemi, "clusters")             # consensus intentionally skipped
 
 
-def test_gpu_ensemble_produces_consensus():
+def test_gpu_ensemble_produces_consensus(embeddings_path):
     pytest.importorskip("cuml")
     nemi = NEMI(params=_params("gpu"))
-    nemi.run(_blobs(), n=3)
+    nemi.run(_blobs(), n=3, embeddings=embeddings_path)
     assert nemi.clusters.shape == (N,)

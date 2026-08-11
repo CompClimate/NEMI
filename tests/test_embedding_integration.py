@@ -16,6 +16,8 @@ from nemi.workflow import SingleNemi
 N_SAMPLES = 200
 N_COMPONENTS = 3
 EMBED = {"n_components": N_COMPONENTS, "n_neighbors": 15, "min_dist": 0.0}
+TSNE_EMBED = {"method": "tsne", "n_components": 2, "perplexity": 30.0,
+              "early_exaggeration": 12.0, "learning_rate": 200.0, "max_iter": 250}
 
 
 def _toy():
@@ -24,8 +26,9 @@ def _toy():
     return X
 
 
-def _embed(device, X):
-    nm = SingleNemi(params={"device": device, "embedding_dict": EMBED})
+def _embed(device, X, embed=None):
+    nm = SingleNemi(params={"device": device,
+                            "embedding_dict": embed if embed else EMBED})
     nm.fit_embedding(X)
     return nm.embedding
 
@@ -56,3 +59,27 @@ def test_cpu_and_gpu_same_shape_but_differ():
     assert np.all(np.isfinite(cpu)) and np.all(np.isfinite(gpu))
     # stochastic + different implementations -> embeddings are not identical
     assert not np.allclose(cpu, gpu)
+
+
+def test_cpu_tsne_embedding_valid():
+    emb = _to_numpy(_embed("cpu", _toy(), TSNE_EMBED))
+    assert emb.shape == (N_SAMPLES, 2)
+    assert np.all(np.isfinite(emb))
+
+
+def test_gpu_tsne_embedding_valid():
+    pytest.importorskip("cuml")
+    emb = _to_numpy(_embed("gpu", _toy(), TSNE_EMBED))
+    assert emb.shape == (N_SAMPLES, 2)
+    assert np.all(np.isfinite(emb))
+
+
+def test_gpu_tsne_rejects_n_components_above_two():
+    pytest.importorskip("cuml")
+    with pytest.raises(ValueError, match="n_components=2 only"):
+        _embed("gpu", _toy(), {**TSNE_EMBED, "n_components": 3})
+
+
+def test_unknown_embedding_method_raises():
+    with pytest.raises(ValueError, match="unknown embedding method"):
+        _embed("cpu", _toy(), {"method": "bogus", "n_components": 2})

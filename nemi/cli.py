@@ -18,11 +18,19 @@ from dataclasses import dataclass
 import numpy as np
 import yaml
 
-from nemi.workflow import MODES, NEMI
+from nemi.workflow import EMBEDDINGS, MODES, NEMI
 
 DEVICES = ("cpu", "gpu")
 CLUSTERINGS = ("agglomerative", "dbscan", "hdbscan", "kmeans")
 LINKAGES = ("ward", "single")
+
+
+def _warn_unused(provided, table, chosen, flag):
+    """Warn about explicitly-set params that don't apply to the chosen method."""
+    relevant = table[chosen]
+    all_params = set().union(*table.values())
+    for name in sorted((provided & all_params) - relevant):
+        warnings.warn(f"--{name.replace('_', '-')} is ignored for {flag} {chosen}")
 
 
 @dataclass
@@ -38,10 +46,15 @@ class NemiConfig:
     seed: int | None = None
     scale: bool = True
     assess_overlap: bool = True
-    # embedding (UMAP)
+    # embedding
+    embedding_method: str = "umap"
     n_components: int = 3
     embed_n_neighbors: int = 20
     min_dist: float = 0.0
+    perplexity: float = 30.0
+    early_exaggeration: float = 12.0
+    learning_rate: float = 200.0
+    max_iter: int = 1000
     # clustering
     clustering: str = "agglomerative"
     n_clusters: int = 30
@@ -60,6 +73,12 @@ class NemiConfig:
         "kmeans": {"n_clusters"},
     }
 
+    # n_components applies to both, so it belongs to neither set.
+    _EMBED_PARAMS = {
+        "umap": {"embed_n_neighbors", "min_dist"},
+        "tsne": {"perplexity", "early_exaggeration", "learning_rate", "max_iter"},
+    }
+
     def validate(self, provided: set[str] | None = None) -> None:
         if self.mode not in MODES:
             raise ValueError(f"mode must be one of {MODES}, got '{self.mode}'")
@@ -71,6 +90,9 @@ class NemiConfig:
             raise ValueError(f"device must be one of {DEVICES}, got '{self.device}'")
         if self.clustering not in CLUSTERINGS:
             raise ValueError(f"clustering must be one of {CLUSTERINGS}, got '{self.clustering}'")
+        if self.embedding_method not in EMBEDDINGS:
+            raise ValueError(f"embedding_method must be one of {EMBEDDINGS}, "
+                             f"got '{self.embedding_method}'")
         if self.linkage not in LINKAGES:
             raise ValueError(f"linkage must be one of {LINKAGES}, got '{self.linkage}'")
         if self.n_members < 1:
@@ -84,16 +106,23 @@ class NemiConfig:
                 "(cuML has no ward). Use --linkage single or --device cpu."
             )
 
-        # Warn about explicitly-set params that don't apply to the chosen method.
         if provided:
-            relevant = self._METHOD_PARAMS[self.clustering]
-            all_params = set().union(*self._METHOD_PARAMS.values())
-            for name in sorted((provided & all_params) - relevant):
-                warnings.warn(f"--{name.replace('_', '-')} is ignored for "
-                              f"--clustering {self.clustering}")
+            _warn_unused(provided, self._METHOD_PARAMS, self.clustering, "--clustering")
+            _warn_unused(provided, self._EMBED_PARAMS, self.embedding_method,
+                         "--embedding-method")
 
     def to_params(self) -> dict:
         """Build the params dict consumed by ``nemi.workflow.NEMI``."""
+        embedding = {"method": self.embedding_method,
+                     "n_components": self.n_components}
+        if self.embedding_method == "umap":
+            embedding.update(min_dist=self.min_dist,
+                             n_neighbors=self.embed_n_neighbors)
+        elif self.embedding_method == "tsne":
+            embedding.update(perplexity=self.perplexity,
+                             early_exaggeration=self.early_exaggeration,
+                             learning_rate=self.learning_rate,
+                             max_iter=self.max_iter)
         clustering = {"method": self.clustering}
         if self.clustering == "agglomerative":
             clustering.update(linkage=self.linkage, n_clusters=self.n_clusters,
@@ -107,9 +136,7 @@ class NemiConfig:
             clustering.update(n_clusters=self.n_clusters)
         return dict(
             device=self.device,
-            embedding_dict=dict(min_dist=self.min_dist,
-                                n_components=self.n_components,
-                                n_neighbors=self.embed_n_neighbors),
+            embedding_dict=embedding,
             clustering_dict=clustering,
         )
 
@@ -147,12 +174,21 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--no-assess-overlap", dest="assess_overlap", action="store_false",
                    default=argparse.SUPPRESS)
 
-    g = p.add_argument_group("embedding (UMAP)")
+    g = p.add_argument_group("embedding")
+    g.add_argument("--embedding-method", choices=EMBEDDINGS, dest="embedding_method",
+                   default=argparse.SUPPRESS)
     g.add_argument("--n-components", type=int, dest="n_components",
                    default=argparse.SUPPRESS)
     g.add_argument("--embed-n-neighbors", type=int, dest="embed_n_neighbors",
                    default=argparse.SUPPRESS)
     g.add_argument("--min-dist", type=float, dest="min_dist",
+                   default=argparse.SUPPRESS)
+    g.add_argument("--perplexity", type=float, default=argparse.SUPPRESS)
+    g.add_argument("--early-exaggeration", type=float, dest="early_exaggeration",
+                   default=argparse.SUPPRESS)
+    g.add_argument("--learning-rate", type=float, dest="learning_rate",
+                   default=argparse.SUPPRESS)
+    g.add_argument("--max-iter", type=int, dest="max_iter",
                    default=argparse.SUPPRESS)
 
     g = p.add_argument_group("clustering")
@@ -208,6 +244,7 @@ def main(argv=None):
     nemi = NEMI(params=cfg.to_params())
 
     print(f"Running NEMI | mode={cfg.mode} device={cfg.device} "
+          f"embedding={cfg.embedding_method} "
           f"clustering={cfg.clustering} "
           f"n_members={cfg.n_members} assess_overlap={cfg.assess_overlap} "
           f"X={X.shape if X is not None else cfg.embeddings} -> {cfg.output}")

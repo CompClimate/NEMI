@@ -57,7 +57,16 @@ Backend & ensemble:
 * ``--scale`` / ``--no-scale``, ``--seed`` — captured but not yet wired (see
   TODOs in ``cli.py``).
 
-Embedding (UMAP): ``--n-components``, ``--embed-n-neighbors``, ``--min-dist``.
+Embedding: ``--embedding-method`` — ``umap`` (default) or ``tsne``.
+``--n-components`` applies to both; the rest are method-specific and setting
+others warns:
+
+* umap — ``--embed-n-neighbors``, ``--min-dist``
+* tsne — ``--perplexity``, ``--early-exaggeration``, ``--learning-rate``,
+  ``--max-iter``
+
+GPU t-SNE supports ``--n-components 2`` only (a cuML limitation) and raises
+otherwise. ``--max-iter`` is passed to cuML as its ``n_iter``.
 
 Clustering: ``--clustering`` — ``agglomerative`` (default), ``dbscan``,
 ``hdbscan``, or ``kmeans``. Each method reads only its own params; setting

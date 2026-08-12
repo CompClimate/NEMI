@@ -19,7 +19,8 @@ from nemi.cli import NemiConfig
 def test_to_params_agglomerative_default():
     params = NemiConfig(input="x.npy", output="o.npy").to_params()
     assert params["device"] == "cpu"
-    assert params["embedding_dict"] == {"min_dist": 0.0, "n_components": 3, "n_neighbors": 20}
+    assert params["embedding_dict"] == {"method": "umap", "min_dist": 0.0,
+                                        "n_components": 3, "n_neighbors": 20}
     assert params["clustering_dict"] == {
         "method": "agglomerative", "linkage": "ward", "n_clusters": 30, "n_neighbors": 40}
 
@@ -35,6 +36,14 @@ def test_to_params_hdbscan_only_has_its_keys():
                         min_cluster_size=25, min_samples=5).to_params()
     assert params["clustering_dict"] == {
         "method": "hdbscan", "min_cluster_size": 25, "min_samples": 5}
+
+
+def test_to_params_tsne_only_has_its_keys():
+    params = NemiConfig(input="x", output="o", embedding_method="tsne",
+                        n_components=2, perplexity=15.0).to_params()
+    assert params["embedding_dict"] == {
+        "method": "tsne", "n_components": 2, "perplexity": 15.0,
+        "early_exaggeration": 12.0, "learning_rate": 200.0, "max_iter": 1000}
 
 
 def test_to_params_kmeans_only_has_its_keys():
@@ -95,6 +104,17 @@ def test_irrelevant_param_warns():
         cfg.validate(provided={"linkage", "eps"})
 
 
+def test_bad_embedding_method_raises():
+    with pytest.raises(ValueError, match="embedding_method must be one of"):
+        NemiConfig(input="x", output="o", embedding_method="bogus").validate()
+
+
+def test_irrelevant_embedding_param_warns():
+    cfg = NemiConfig(input="x", output="o", embedding_method="tsne")
+    with pytest.warns(UserWarning, match="min-dist"):
+        cfg.validate(provided={"min_dist", "perplexity"})
+
+
 # --- parser + config merge -------------------------------------------------
 
 def _cfg(argv):
@@ -140,6 +160,13 @@ def test_assess_overlap_defaults_true():
 def test_no_assess_overlap_flag():
     cfg, _ = _cfg(["d.npy", "-o", "o.npy", "--no-assess-overlap"])
     assert cfg.assess_overlap is False
+
+
+def test_embedding_method_parses():
+    cfg, _ = _cfg(["d.npy", "-o", "o.npz", "--embedding-method", "tsne",
+                   "--perplexity", "12.5", "--max-iter", "500"])
+    assert cfg.embedding_method == "tsne"
+    assert cfg.perplexity == 12.5 and cfg.max_iter == 500
 
 
 def test_mode_and_embeddings_parse():

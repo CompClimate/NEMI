@@ -10,17 +10,20 @@ import matplotlib.pyplot as plt
 from collections import OrderedDict
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import AgglomerativeClustering, DBSCAN, HDBSCAN, KMeans
+from sklearn.manifold import TSNE
 from sklearn.neighbors import kneighbors_graph
 # import sciris as sc
 
-__all__ = ['NEMI', 'SingleNemi', 'MODES', 'DEFAULT_EMBEDDINGS_PATH']
+__all__ = ['NEMI', 'SingleNemi', 'MODES', 'DEFAULT_EMBEDDINGS_PATH', 'EMBEDDINGS']
 
 MODES = ('full', 'embed', 'cluster')
+EMBEDDINGS = ('umap', 'tsne')
 DEFAULT_EMBEDDINGS_PATH = 'nemi_embeddings.npz'
 
 default_params = dict(
     device="cpu",
-    embedding_dict=dict(min_dist=0.0, n_components=3, n_neighbors=20),
+    embedding_dict=dict(method="umap", min_dist=0.0, n_components=3,
+                        n_neighbors=20),
     clustering_dict=dict(method="agglomerative", linkage="ward",
                          n_clusters=30, n_neighbors=40),
 )
@@ -210,11 +213,24 @@ class SingleNemi():
             ax.scatter(*xy[::subsample].T, c=np.array(col).reshape((1,-1)), s=s, alpha=1, zorder=4)      
 
 
-    def __embedding_algo(self, device, **kwargs):
-        if device == "gpu":
-            from cuml.manifold import UMAP as cuUMAP
-            return cuUMAP(**kwargs).fit_transform
-        return umap.UMAP(**kwargs).fit_transform
+    def __embedding_algo(self, device, method="umap", **kwargs):
+        if method == "umap":
+            if device == "gpu":
+                from cuml.manifold import UMAP as cuUMAP
+                return cuUMAP(**kwargs).fit_transform
+            return umap.UMAP(**kwargs).fit_transform
+        elif method == "tsne":
+            if device == "gpu":
+                from cuml.manifold import TSNE as cuTSNE
+                if kwargs.get('n_components', 2) != 2:
+                    raise ValueError(
+                        "GPU t-SNE supports n_components=2 only (cuML limitation); "
+                        "use n_components=2 or device='cpu'")
+                if 'max_iter' in kwargs:
+                    kwargs['n_iter'] = kwargs.pop('max_iter')
+                return cuTSNE(**kwargs).fit_transform
+            return TSNE(**kwargs).fit_transform
+        raise ValueError(f"unknown embedding method '{method}'")
 
     def __cluster_cpu(self, method="agglomerative", **kwargs):
         if method == "agglomerative":

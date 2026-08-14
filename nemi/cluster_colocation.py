@@ -6,6 +6,7 @@ reference that the fast path is tested against.  Both take the per-member label
 arrays and return the same four values.
 """
 import numpy as np
+from tqdm import tqdm
 
 __all__ = ['assess_overlap_fast', 'assess_overlap_legacy', 'default_base_id']
 
@@ -119,7 +120,7 @@ def assess_overlap_fast(member_clusters, base_id=None, max_clusters=None):
     sample_idx = np.arange(base_labels.shape[0])
     aggOverlaps = np.zeros((max_clusters, base_labels.shape[0]))
 
-    for compare_id in compare_ids:
+    for compare_id in tqdm(compare_ids, desc='Assessing overlap'):
         compare_idx = _bin_index(member_clusters[compare_id], num_clusters)
         contingency_table = contingency_table_per_ensemble(base_idx, compare_idx, max_clusters, num_clusters)
 

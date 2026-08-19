@@ -15,6 +15,8 @@ from sklearn.manifold import TSNE
 from sklearn.neighbors import kneighbors_graph
 # import sciris as sc
 
+from .cluster_colocation import assess_overlap_fast, default_base_id
+
 __all__ = ['NEMI', 'SingleNemi', 'MODES', 'DEFAULT_EMBEDDINGS_PATH', 'EMBEDDINGS']
 
 MODES = ('full', 'embed', 'cluster')
@@ -451,120 +453,32 @@ class NEMI(SingleNemi):
     def assess_overlap(self, base_id=None, max_clusters=None, **kwargs):
         """ Assess the overlap between the clusters.
 
+        Aligns every ensemble member onto the base member's label space and
+        takes a per-sample majority vote; see
+        :mod:`nemi.cluster_colocation`.  Sets ``clusters``, ``overlap_votes``,
+        ``n_members``, ``unassigned_frac``, ``base_id`` and ``embedding``.
+
         Args:
             base_id (int, optional): ensemble member used as the base. Defaults
                 to the member with the most clusters, so its cluster count
                 covers every other member (required for variable-k methods like
                 HDBSCAN).
+            max_clusters (int, optional): number of base clusters to match.
+                Defaults to all of them.
         """
+        member_clusters = [nemi.clusters for nemi in self.nemi_pack]
+
         if base_id is None:
-            base_id = int(np.argmax([_num_clusters(nemi.clusters)
-                                     for nemi in self.nemi_pack]))
+            base_id = default_base_id(member_clusters)
 
         self.base_id = base_id
         self.embedding = self.nemi_pack[base_id].embedding
 
-        # list of ensemble members we are comparing to the base
-        compare_ids = [i for i in range(len(self.nemi_pack))]
-        compare_ids.pop(base_id)
-
-        # identify clusters from the base ensemble member
-        base_labels = self.nemi_pack[base_id].clusters
-
-        # (NaN-safe: HDBSCAN/DBSCAN emit -1 noise -> NaN)
-        num_clusters = _num_clusters(base_labels)
-
-        if max_clusters is None:
-            max_clusters = num_clusters
-
-        sortedOverlap=np.zeros((len(compare_ids)+1, max_clusters, base_labels.shape[0]))*np.nan
-
-        print(num_clusters, max_clusters)
-        summaryStats=np.zeros((num_clusters, max_clusters))
-
-        # compile sorted cluster data
-        # TODO: add assert statement to make sure that the clusters have been sorted?
-        dataVector=[nemi.clusters for id, nemi in enumerate(self.nemi_pack) if id != base_id]
-
-        # loop over ensemble members, not including the base member
-        for compare_cnt, compare_id in enumerate(compare_ids):
-            # grab clusters of ensemble member
-            compare_labels= dataVector[compare_cnt]
-
-            # go through each cluster in the base and assess the percentage overlap
-            # for every cluster in the ensemble member (overlap / total coverage area) 
-            for c1 in range(max_clusters): 
-                # Initialize dummy array to mark location of the cluster for the base member
-                data1_M = np.zeros(base_labels.shape, dtype=int)
-                # mark where the considered cluster is in the member that is being used as the baseline
-                data1_M[np.where(c1==base_labels)] = 1 
-                # # Count numer of entries [Why?] 
-                summaryStats[0, c1]=np.sum(data1_M) 
-
-                # go through each cluster
-                # k = 0
-                for c2 in range(num_clusters):
-                    # Initialize dummy array to mark where the cluster is in the comparison member
-                    data2_M = np.zeros(base_labels.shape, dtype=int) 
-
-                    # mark where the considered cluster is in the member that is being used as the comparison
-                    data2_M[np.where(c2==compare_labels)] = 1    
-
-                    # Sum of flags where the two datasets of that cluster are both present
-                    num_overlap=np.sum(data1_M*data2_M)       
-
-                    #Sum of where they overlap
-                    num_total=np.sum(data1_M | data2_M)       
-
-                    #Collect the number that is largest of k and the num_overlap/num_total
-                    # k = max(k, num_overlap / num_total)       
-                    summaryStats[c2, c1]=(num_overlap / num_total)*100 # Add percentage of coverage
-
-                #Filled in 'summaryStatistics' matrix results of percentage overlaps
-
-            usedClusters = set() # Used to mak sure clusters don't get selected twice
-            #Clusters are already sorted by size
-            
-            sortedOverlapForOneCluster=np.zeros(base_labels.shape, dtype=int)*np.nan
-            # go through clusters from (biggest to smallest since they are sorted)
-            for c1 in range(max_clusters):  
-                sortedOverlapForOneCluster=np.zeros(base_labels.shape, dtype=int)*np.nan
-                #print('cluster number ', c1, summaryStats.shape, summaryStats[1:,c1-1].shape)
-
-                # find biggest cluster in first column, making sure it has not been used
-                sortedClusters = np.argsort(summaryStats[:, c1])[::-1]
-                biggestCluster = [ele for ele in sortedClusters if ele not in usedClusters][0]
-
-                # record it for later
-                usedClusters.add(biggestCluster)
-
-                # Initialize dummy array
-                data2_M = np.zeros(base_labels.shape, dtype=int)
-
-                # Select which country is being assessed
-                data2_M[np.where(biggestCluster == compare_labels)]=1 # Select cluster being assessed
-
-                sortedOverlapForOneCluster[np.where(data2_M==1)]=1
-                sortedOverlap[compare_id, c1, :] = sortedOverlapForOneCluster
-
-        # fill in the base entry in the sorted overlap
-        for c1 in range(max_clusters):  
-            sortedOverlap[base_id, c1, :] = 1 * (base_labels == c1)
-
-        # majority vote, with an "unassigned" bin competing so samples the
-        # ensemble mostly left as noise get -1 rather than a spurious cluster 0
-        aggOverlaps = np.nansum(sortedOverlap, axis=0)          # (K, N)
-        n_members = len(self.nemi_pack)
-        unassigned = n_members - aggOverlaps.sum(axis=0)        # (N,) members that abstained (noise)
-        augmented = np.vstack([aggOverlaps, unassigned])        # (K+1, N)
-        voteOverlaps = np.argmax(augmented, axis=0)
-        voteOverlaps[voteOverlaps == aggOverlaps.shape[0]] = -1  # noise bin won -> -1
-
-        # save clusters estimated from the ensemble
-        self.clusters = voteOverlaps
-        self.overlap_votes = aggOverlaps      # (K, N) aligned per-sample vote counts
-        self.n_members = n_members
-        self.unassigned_frac = unassigned / n_members           # (N,) graded noise support
+        (self.clusters,
+         self.overlap_votes,          # (K, N) aligned per-sample vote counts
+         self.n_members,
+         self.unassigned_frac) = assess_overlap_fast(member_clusters, base_id,
+                                                     max_clusters)
 
     def entropy_map(self):
         """ Per-sample normalized Shannon entropy of the aligned ensemble

@@ -1,5 +1,6 @@
 
 import os
+import gc
 import json
 import umap
 import pickle
@@ -27,6 +28,20 @@ default_params = dict(
     clustering_dict=dict(method="agglomerative", linkage="ward",
                          n_clusters=30, n_neighbors=40),
 )
+
+
+def free_device_memory():
+    """ Release the GPU buffers left behind by a finished cuML estimator.
+
+    cuML estimators sit in reference cycles, so their device arrays survive
+    until the cyclic collector runs -- and that collector is driven by host
+    allocations, never by GPU pressure. Without this, each ensemble member
+    leaves an embedding's worth of device memory behind until a fit runs out.
+    """
+    import cupy  # optional dependency, installed with the 'gpu' extra
+
+    gc.collect()
+    cupy.get_default_memory_pool().free_all_blocks()
 
 
 def _num_clusters(labels):
@@ -115,6 +130,11 @@ class SingleNemi():
         embedding_fn = self.__embedding_algo(self.params['device'],
                                              **self.params['embedding_dict'])
         self.embedding = embedding_fn(self.X)
+        # embedding_fn is a bound method of the estimator, and so the only thing
+        # keeping its device arrays alive; drop it before the next member fits
+        del embedding_fn
+        if self.params['device'] == 'gpu':
+            free_device_memory()
 
 
     def predict_clusters(self):
@@ -131,6 +151,7 @@ class SingleNemi():
 
         if device == "gpu":
             labels = self.__cluster_gpu(**cluster_params)
+            free_device_memory()
         else:
             labels = self.__cluster_cpu(**cluster_params)
 

@@ -292,7 +292,8 @@ class SingleNemi():
                 linkage='single', n_neighbors=kwargs['n_neighbors'])
         elif method == "dbscan":
             model = cucluster.DBSCAN(eps=kwargs['eps'],
-                                     min_samples=kwargs['min_samples'])
+                                     min_samples=kwargs['min_samples'],
+                                     max_mbytes_per_batch=kwargs.get('max_mbytes_per_batch'))
         elif method == "hdbscan":
             model = cucluster.HDBSCAN(min_cluster_size=kwargs['min_cluster_size'],
                                       min_samples=kwargs['min_samples'])

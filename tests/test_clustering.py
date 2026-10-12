@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 from sklearn.datasets import make_blobs
 
+from nemi import workflow
 from nemi.workflow import SingleNemi
 
 N = 90
@@ -48,6 +49,21 @@ def test_cpu_hdbscan_runs():
     labels = _run_cpu("hdbscan", min_cluster_size=5, min_samples=5)
     assert labels.shape == (N,)
     assert labels.dtype.kind in "iu"
+
+
+def test_cpu_hdbscan_forwards_selection_params(monkeypatch):
+    seen = {}
+    real = workflow.HDBSCAN
+
+    def spy(**kwargs):
+        seen.update(kwargs)
+        return real(**kwargs)
+
+    monkeypatch.setattr(workflow, "HDBSCAN", spy)
+    _run_cpu("hdbscan", min_cluster_size=5, min_samples=5,
+             cluster_selection_method="leaf", cluster_selection_epsilon=0.5)
+    assert seen["cluster_selection_method"] == "leaf"
+    assert seen["cluster_selection_epsilon"] == 0.5
 
 
 def test_cpu_kmeans_gives_k_clusters():

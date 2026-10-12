@@ -35,7 +35,8 @@ def test_to_params_hdbscan_only_has_its_keys():
     params = NemiConfig(input="x", output="o", clustering="hdbscan",
                         min_cluster_size=25, min_samples=5).to_params()
     assert params["clustering_dict"] == {
-        "method": "hdbscan", "min_cluster_size": 25, "min_samples": 5}
+        "method": "hdbscan", "min_cluster_size": 25, "min_samples": 5,
+        "cluster_selection_method": "eom", "cluster_selection_epsilon": 0.0}
 
 
 def test_to_params_tsne_only_has_its_keys():

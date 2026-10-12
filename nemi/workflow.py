@@ -272,7 +272,11 @@ class SingleNemi():
             model = DBSCAN(eps=kwargs['eps'], min_samples=kwargs['min_samples'])
         elif method == "hdbscan":
             model = HDBSCAN(min_cluster_size=kwargs['min_cluster_size'],
-                            min_samples=kwargs['min_samples'])
+                            min_samples=kwargs['min_samples'],
+                            cluster_selection_method=kwargs.get(
+                                'cluster_selection_method', 'eom'),
+                            cluster_selection_epsilon=kwargs.get(
+                                'cluster_selection_epsilon', 0.0))
         elif method == "kmeans":
             model = KMeans(n_clusters=kwargs['n_clusters'],
                            n_init=kwargs.get('n_init', 10),
@@ -296,7 +300,11 @@ class SingleNemi():
                                      max_mbytes_per_batch=kwargs.get('max_mbytes_per_batch'))
         elif method == "hdbscan":
             model = cucluster.HDBSCAN(min_cluster_size=kwargs['min_cluster_size'],
-                                      min_samples=kwargs['min_samples'])
+                                      min_samples=kwargs['min_samples'],
+                                      cluster_selection_method=kwargs.get(
+                                          'cluster_selection_method', 'eom'),
+                                      cluster_selection_epsilon=kwargs.get(
+                                          'cluster_selection_epsilon', 0.0))
         elif method == "kmeans":
             model = cucluster.KMeans(n_clusters=kwargs['n_clusters'],
                                      n_init=kwargs.get('n_init', 10),

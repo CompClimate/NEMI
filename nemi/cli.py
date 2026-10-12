@@ -23,6 +23,7 @@ from nemi.workflow import EMBEDDINGS, MODES, NEMI
 DEVICES = ("cpu", "gpu")
 CLUSTERINGS = ("agglomerative", "dbscan", "hdbscan", "kmeans")
 LINKAGES = ("ward", "single")
+SELECTIONS = ("eom", "leaf")
 
 
 def _warn_unused(provided, table, chosen, flag):
@@ -63,13 +64,16 @@ class NemiConfig:
     eps: float = 0.5
     min_samples: int = 5
     min_cluster_size: int = 50
+    cluster_selection_method: str = "eom"
+    cluster_selection_epsilon: float = 0.0
 
     # Params that actually apply to each clustering method (drives the
     # irrelevant-argument warnings).
     _METHOD_PARAMS = {
         "agglomerative": {"n_clusters", "linkage", "cluster_n_neighbors"},
         "dbscan": {"eps", "min_samples"},
-        "hdbscan": {"min_cluster_size", "min_samples"},
+        "hdbscan": {"min_cluster_size", "min_samples",
+                    "cluster_selection_method", "cluster_selection_epsilon"},
         "kmeans": {"n_clusters"},
     }
 
@@ -95,6 +99,9 @@ class NemiConfig:
                              f"got '{self.embedding_method}'")
         if self.linkage not in LINKAGES:
             raise ValueError(f"linkage must be one of {LINKAGES}, got '{self.linkage}'")
+        if self.cluster_selection_method not in SELECTIONS:
+            raise ValueError(f"cluster_selection_method must be one of {SELECTIONS}, "
+                             f"got '{self.cluster_selection_method}'")
         if self.n_members < 1:
             raise ValueError(f"n_members must be >= 1, got {self.n_members}")
 
@@ -131,7 +138,9 @@ class NemiConfig:
             clustering.update(eps=self.eps, min_samples=self.min_samples)
         elif self.clustering == "hdbscan":
             clustering.update(min_cluster_size=self.min_cluster_size,
-                              min_samples=self.min_samples)
+                              min_samples=self.min_samples,
+                              cluster_selection_method=self.cluster_selection_method,
+                              cluster_selection_epsilon=self.cluster_selection_epsilon)
         elif self.clustering == "kmeans":
             clustering.update(n_clusters=self.n_clusters)
         return dict(
@@ -203,6 +212,10 @@ def build_parser() -> argparse.ArgumentParser:
                    default=argparse.SUPPRESS)
     g.add_argument("--min-cluster-size", type=int, dest="min_cluster_size",
                    default=argparse.SUPPRESS)
+    g.add_argument("--cluster-selection-method", choices=SELECTIONS,
+                   dest="cluster_selection_method", default=argparse.SUPPRESS)
+    g.add_argument("--cluster-selection-epsilon", type=float,
+                   dest="cluster_selection_epsilon", default=argparse.SUPPRESS)
     return p
 
 

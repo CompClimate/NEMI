@@ -75,7 +75,8 @@ others warns:
 * agglomerative — ``--n-clusters``, ``--linkage`` (``ward``/``single``),
   ``--cluster-n-neighbors``
 * dbscan — ``--eps``, ``--min-samples``
-* hdbscan — ``--min-cluster-size``, ``--min-samples``
+* hdbscan — ``--min-cluster-size``, ``--min-samples``,
+  ``--cluster-selection-method`` (``eom``/``leaf``), ``--cluster-selection-epsilon``
 * kmeans — ``--n-clusters``
 
 Output

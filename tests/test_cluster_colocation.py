@@ -3,17 +3,20 @@ Unit tests for nemi.cluster_colocation.
 
 assess_overlap_fast is exercised directly on hand-built label vectors, so every
 consensus is deterministic -- no UMAP, clustering, or randomness involved.
-Covers base-member selection, cross-member label alignment, majority voting,
-noise handling, and the shapes/values of everything returned.
+Covers base-member selection, cross-member label alignment, zero-overlap and
+tied matches, majority voting, noise handling, and the shapes/values of
+everything returned.
 
 The final test pins assess_overlap_fast to assess_overlap_legacy (the original
 mask-based implementation) over 100 randomised ensembles.
 '''
+import itertools
+
 import numpy as np
 import pytest
 
 from nemi.cluster_colocation import (assess_overlap_fast, assess_overlap_legacy,
-                                     default_base_id)
+                                     default_base_id, greedy_selection)
 
 
 def _labels(*rows):
@@ -90,6 +93,66 @@ def test_matching_is_one_to_one():
                       [0, 0, 1, 1])
     _, votes, _, _ = assess_overlap_fast(members, base_id=0)
     assert votes.sum(axis=0).max() <= 3.0
+
+
+def test_well_overlapping_members_align_fully():
+    # each member is the base with its label numbers permuted and 5% of samples
+    # reassigned: every cluster overlaps its counterpart, so every one is
+    # matched (no abstentions) and the consensus is the base labeling
+    rng = np.random.default_rng(1)
+    base = np.repeat(np.arange(6), 100)
+    members = [base.astype(float)]
+    moved_any = np.zeros(base.size, dtype=bool)
+    for _ in range(4):
+        labels = rng.permutation(6)[base]
+        moved = rng.random(base.size) < 0.05
+        labels[moved] = rng.integers(0, 6, moved.sum())
+        members.append(labels.astype(float))
+        moved_any |= moved
+    clusters, votes, _, unassigned = assess_overlap_fast(members, base_id=0)
+    assert clusters.tolist() == base.tolist()
+    assert unassigned.tolist() == [0.0] * base.size
+    # samples that no member moved get all 5 votes for their base cluster
+    kept = np.flatnonzero(~moved_any)
+    assert np.all(votes[base[kept], kept] == 5)
+
+
+# ------------------------------------------------------- zero-overlap matches
+
+@pytest.mark.parametrize('assess', [assess_overlap_fast, assess_overlap_legacy])
+def test_compare_cluster_in_base_noise_casts_no_vote(assess):
+    # member 1's cluster 1 (samples 9-11) lies entirely in base noise: it shares
+    # no points with any base cluster, so it must not be matched to one
+    members = _labels([0, 0, 0, 0, 1, 1, 1, 2, 2, None, None, None],
+                      [0, 0, 0, 0, None, None, None, None, None, 1, 1, 1])
+    clusters, votes, _, unassigned = assess(members, base_id=0)
+    assert votes[:, 9:].sum() == 0
+    assert unassigned[9:].tolist() == [1.0] * 3
+    assert clusters.tolist() == [0, 0, 0, 0, 1, 1, 1, 2, 2, -1, -1, -1]
+
+
+@pytest.mark.parametrize('assess', [assess_overlap_fast, assess_overlap_legacy])
+def test_consensus_does_not_depend_on_zero_overlap_tie_order(assess):
+    # in the compare member, cluster A (samples 0-3) matches base 0 and C
+    # (samples 10-11) matches base 3, while B (samples 12-13) lies in base
+    # noise.  Base clusters 1 and 2 overlap nothing, so every candidate they
+    # see has IoU 0.  Relabeling the compare member reorders those ties; the
+    # result must not change, and base 1/2 must not take B or C
+    base = [0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, None, None]
+    for a, b, c in itertools.permutations(range(3)):
+        compare = [a] * 4 + [None] * 6 + [c] * 2 + [b] * 2
+        clusters, votes, _, _ = assess(_labels(base, compare), base_id=0)
+        assert clusters.tolist() == [0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, -1, -1]
+        assert votes[:, 10:12].tolist() == [[0, 0], [0, 0], [0, 0], [2, 2]]
+
+
+def test_equal_iou_goes_to_the_lowest_compare_label():
+    # base 0 overlaps compare 0 and 2 equally -> compare 0; base 1 then takes
+    # compare 2; compare 1 (NaN: both clusters empty) is never a match
+    table = np.array([[50.0, 0.0],
+                      [np.nan, np.nan],
+                      [50.0, 25.0]])
+    assert greedy_selection(table, 2, 3).tolist() == [0, -1, 1, -1]
 
 
 # --------------------------------------------------------------------- voting

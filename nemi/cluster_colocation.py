@@ -3,7 +3,8 @@
 ``assess_overlap_fast`` is the implementation the pipeline uses.
 ``assess_overlap_legacy`` is the original mask-based version, kept as the
 reference that the fast path is tested against.  Both take the per-member label
-arrays and return the same four values.
+arrays, match clusters with :func:`greedy_selection`, and return the same four
+values.
 """
 import numpy as np
 from tqdm import tqdm
@@ -57,24 +58,37 @@ def contingency_table_per_ensemble(base_idx, comp_member_comp_idx, max_clusters,
     return contingency_table
 
 
-def greedy_selection (contingency_table, max_clusters, num_clusters):
-    usedClusters = set() # Used to make sure clusters don't get selected twice
-    #Clusters are already sorted by size
+def greedy_selection(contingency_table, max_clusters, num_clusters):
+    """ Match each base cluster to at most one compare cluster, greedily by IoU.
 
+    Base clusters are visited largest first (labels are sorted by size) and each
+    takes the unused compare cluster it overlaps most.  Only a positive IoU is a
+    match: a base cluster that shares no points with any unused compare cluster
+    stays unmatched, so a compare cluster lying entirely in base noise casts no
+    vote.  Equal IoUs go to the lowest compare label, so the matching does not
+    depend on sort internals and is the same on every machine.
+
+    Args:
+        contingency_table (num_clusters, max_clusters): IoU (%) of each compare
+            cluster (row) with each base cluster (column).  NaN (both clusters
+            empty) counts as no overlap.
+        max_clusters (int): number of base clusters to match.
+        num_clusters (int): number of compare cluster labels (table rows).
+
+    Returns:
+        match (num_clusters + 1,): base cluster for each compare cluster, -1
+            where unmatched.  The last entry is the noise bin and is always -1.
+    """
+    available = np.ones(contingency_table.shape[0], dtype=bool)
     match = np.full(num_clusters + 1, -1, dtype=np.int64)
 
-    # go through clusters from (biggest to smallest since they are sorted)
     for c1 in range(max_clusters):
-
-        # find biggest cluster in first column, making sure it has not been used
-        sortedClusters = np.argsort(contingency_table[:, c1])[::-1]
-        biggestCluster = [ele for ele in sortedClusters if ele not in usedClusters][0]
-
-        # record it for later
-        usedClusters.add(biggestCluster)
-
-        # record base cluster to compare cluster vote
-        match[biggestCluster] = c1
+        iou = contingency_table[:, c1]
+        candidates = np.where(available & (iou > 0), iou, 0.0)
+        best = np.argmax(candidates)  # first maximum, so ties go to the lowest label
+        if candidates[best] > 0:
+            match[best] = c1
+            available[best] = False
 
     return match
 
@@ -85,7 +99,7 @@ def assess_overlap_fast(member_clusters, base_id=None, max_clusters=None):
     Algorithm :
         1. Use bin count to find intersection O(N)
         2. Compute Union with inclusion-exclusion O(K^2)
-        3. Greedy algorithm to select largest cluster overlap
+        3. Greedy one-to-one matching on positive IoU (:func:`greedy_selection`)
         4. Majority vote across the aligned members
 
     Args:
@@ -136,7 +150,7 @@ def assess_overlap_fast(member_clusters, base_id=None, max_clusters=None):
             # array([1, 0, 2, 0, 0, 2])
         aligned = match[compare_idx]
 
-        voted = aligned >= 0 # masks noise
+        voted = aligned >= 0 # masks noise and unmatched compare clusters
         aggOverlaps[aligned[voted], sample_idx[voted]] += 1 #increment row cluster, column data points
 
      # fill in the base entry
@@ -159,6 +173,8 @@ def assess_overlap_legacy(member_clusters, base_id=None, max_clusters=None):
 
     The original mask-based implementation, kept as the reference that
     :func:`assess_overlap_fast` is tested against.  Same arguments and returns.
+    Both share :func:`greedy_selection`, so the pin covers the overlap counts
+    and the vote, and the matching rule is tested on its own.
     """
     if base_id is None:
         base_id = default_base_id(member_clusters)
@@ -214,27 +230,11 @@ def assess_overlap_legacy(member_clusters, base_id=None, max_clusters=None):
 
             #Filled in 'summaryStatistics' matrix results of percentage overlaps
 
-        usedClusters = set() # Used to make sure clusters don't get selected twice
-        #Clusters are already sorted by size
-
-        # go through clusters from (biggest to smallest since they are sorted)
-        for c1 in range(max_clusters):
-            sortedOverlapForOneCluster=np.zeros(base_labels.shape, dtype=int)*np.nan
-
-            # find biggest cluster in first column, making sure it has not been used
-            sortedClusters = np.argsort(summaryStats[:, c1])[::-1]
-            biggestCluster = [ele for ele in sortedClusters if ele not in usedClusters][0]
-
-            # record it for later
-            usedClusters.add(biggestCluster)
-
-            # Initialize dummy array
-            data2_M = np.zeros(base_labels.shape, dtype=int)
-
-            data2_M[np.where(biggestCluster == compare_labels)]=1 # Select cluster being assessed
-
-            sortedOverlapForOneCluster[np.where(data2_M==1)]=1
-            sortedOverlap[compare_id, c1, :] = sortedOverlapForOneCluster
+        # same matching rule as the fast path; each matched compare cluster's
+        # samples then vote for its base cluster
+        match = greedy_selection(summaryStats, max_clusters, num_clusters)
+        for c2 in np.flatnonzero(match >= 0):
+            sortedOverlap[compare_id, match[c2], compare_labels == c2] = 1
 
     # fill in the base entry in the sorted overlap
     for c1 in range(max_clusters):
